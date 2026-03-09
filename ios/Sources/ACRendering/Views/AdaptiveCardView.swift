@@ -7,23 +7,41 @@ import ACInputs
 /// Root SwiftUI view for rendering an Adaptive Card
 public struct AdaptiveCardView: View {
     let cardJson: String
+    let templateData: [String: Any]?
     let hostConfig: HostConfig
     let actionDelegate: ActionDelegate?
+    let onCardParsed: ((AdaptiveCard) -> Void)?
+    let onCardParseError: ((Error) -> Void)?
 
     @StateObject private var viewModel = CardViewModel()
     @StateObject private var validationState = ValidationState()
     private let actionHandler: ActionHandler
 
+    /// Creates an Adaptive Card view
+    /// - Parameters:
+    ///   - cardJson: The card JSON string (may contain `${expression}` template syntax)
+    ///   - templateData: Optional data context for template expansion
+    ///   - hostConfig: Host configuration for theming and layout
+    ///   - actionDelegate: Delegate for handling card actions
+    ///   - actionHandler: Internal action dispatcher
+    ///   - onCardParsed: Called when the card is successfully parsed
+    ///   - onCardParseError: Called when card parsing fails
     public init(
         cardJson: String,
+        templateData: [String: Any]? = nil,
         hostConfig: HostConfig = TeamsHostConfig.create(),
         actionDelegate: ActionDelegate? = nil,
-        actionHandler: ActionHandler = DefaultActionHandler()
+        actionHandler: ActionHandler = DefaultActionHandler(),
+        onCardParsed: ((AdaptiveCard) -> Void)? = nil,
+        onCardParseError: ((Error) -> Void)? = nil
     ) {
         self.cardJson = cardJson
+        self.templateData = templateData
         self.hostConfig = hostConfig
         self.actionDelegate = actionDelegate
         self.actionHandler = actionHandler
+        self.onCardParsed = onCardParsed
+        self.onCardParseError = onCardParseError
     }
 
     public var body: some View {
@@ -34,7 +52,17 @@ public struct AdaptiveCardView: View {
             .environment(\.actionHandler, actionHandler)
             .environment(\.validationState, validationState)
             .onAppear {
-                viewModel.parseCard(json: cardJson)
+                viewModel.parseCard(json: cardJson, templateData: templateData)
+            }
+            .onChange(of: viewModel.card) { card in
+                if let card = card {
+                    onCardParsed?(card)
+                }
+            }
+            .onChange(of: viewModel.parsingError?.localizedDescription) { errorDesc in
+                if let error = viewModel.parsingError {
+                    onCardParseError?(error)
+                }
             }
     }
 
@@ -53,9 +81,10 @@ public struct AdaptiveCardView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 if let body = card.body, !body.isEmpty {
-                    ForEach(body) { element in
+                    ForEach(Array(body.enumerated()), id: \.element.id) { index, element in
                         if viewModel.isElementVisible(elementId: element.elementId) {
                             ElementView(element: element, hostConfig: hostConfig)
+                                .padding(.top, index > 0 && element.spacing == nil ? CGFloat(hostConfig.spacing.default) : 0)
                         }
                     }
                 }
@@ -66,7 +95,7 @@ public struct AdaptiveCardView: View {
                 }
             }
             .padding(CGFloat(hostConfig.spacing.padding))
-            .containerStyle(nil, hostConfig: hostConfig)
+            .containerStyle(.default, hostConfig: hostConfig)
         }
         .environment(\.layoutDirection, card.rtl == true ? .rightToLeft : .leftToRight)
     }
