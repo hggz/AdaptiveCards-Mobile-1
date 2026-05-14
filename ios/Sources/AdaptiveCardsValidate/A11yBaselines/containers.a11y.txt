@@ -1,0 +1,10 @@
+VStack
+  VStack
+    Heading "Container Example" [size=large weight=bolder]
+    Text "This text is inside a container with emphasis style."
+  HStack
+    VStack
+      Image "https://adaptivecards.io/content/cats/1.png" [MISSING_ALT size=small]
+    VStack
+      Text "Column Set" [weight=bolder]
+      Text "This demonstrates a column layout with an image and text." [wrap]

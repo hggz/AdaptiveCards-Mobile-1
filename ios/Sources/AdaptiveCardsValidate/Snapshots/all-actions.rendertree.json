@@ -1,0 +1,57 @@
+{
+  "children" : [
+    {
+      "isSubtle" : false,
+      "size" : "large",
+      "string" : "Action Examples",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "children" : [
+        {
+          "kind" : {
+            "payload" : "https:\/\/adaptivecards.io",
+            "type" : "openUrl"
+          },
+          "title" : "Open URL",
+          "type" : "button"
+        },
+        {
+          "kind" : {
+            "payload" : "{\"action\":\"submit\",\"value\":\"test\"}",
+            "type" : "submit"
+          },
+          "title" : "Submit Data",
+          "type" : "button"
+        }
+      ],
+      "spacing" : 8,
+      "type" : "horizontalStack"
+    },
+    {
+      "isSubtle" : false,
+      "size" : "default",
+      "string" : "Toggle Visibility Example",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "children" : [
+        {
+          "kind" : {
+            "type" : "toggleVisibility"
+          },
+          "title" : "Toggle Text",
+          "type" : "button"
+        }
+      ],
+      "spacing" : 8,
+      "type" : "horizontalStack"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

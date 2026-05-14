@@ -1,0 +1,122 @@
+{
+  "children" : [
+    {
+      "isSubtle" : false,
+      "size" : "large",
+      "string" : "Product Reviews",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "isSubtle" : false,
+      "size" : "medium",
+      "string" : "Adaptive Cards Mobile SDK",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "count" : 128,
+      "max" : 5,
+      "type" : "rating",
+      "value" : 4.5
+    },
+    {
+      "isSubtle" : false,
+      "size" : "default",
+      "string" : "A fantastic SDK for building mobile experiences!",
+      "type" : "text",
+      "weight" : "default",
+      "wrap" : true
+    },
+    {
+      "isSubtle" : false,
+      "size" : "medium",
+      "string" : "Rate Your Experience",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "type" : "unsupported",
+      "typeString" : "Input.Rating"
+    },
+    {
+      "id" : "feedback",
+      "isMultiline" : true,
+      "isRequired" : false,
+      "label" : "Additional feedback (optional)",
+      "placeholder" : "Tell us more about your experience...",
+      "type" : "textField"
+    },
+    {
+      "isSubtle" : false,
+      "size" : "medium",
+      "string" : "Different Rating Sizes",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "children" : [
+        {
+          "isSubtle" : false,
+          "size" : "small",
+          "string" : "Small:",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "max" : 5,
+          "type" : "rating",
+          "value" : 3.5
+        },
+        {
+          "isSubtle" : false,
+          "size" : "small",
+          "string" : "Medium (default):",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "max" : 5,
+          "type" : "rating",
+          "value" : 4
+        },
+        {
+          "isSubtle" : false,
+          "size" : "small",
+          "string" : "Large:",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "max" : 5,
+          "type" : "rating",
+          "value" : 5
+        }
+      ],
+      "spacing" : 8,
+      "type" : "verticalStack"
+    },
+    {
+      "children" : [
+        {
+          "kind" : {
+            "type" : "submit"
+          },
+          "title" : "Submit Rating",
+          "type" : "button"
+        }
+      ],
+      "spacing" : 8,
+      "type" : "horizontalStack"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

@@ -1,0 +1,24 @@
+VStack
+  Heading "Table Example" [size=large weight=bolder]
+  Table
+    HeaderRow
+      HeaderCell column=0
+        Text "Name" [weight=bolder]
+      HeaderCell column=1
+        Text "Description" [weight=bolder]
+      HeaderCell column=2
+        Text "Value" [weight=bolder]
+    Row index=0
+      Cell column=0
+        Text "Item 1"
+      Cell column=1
+        Text "First item description"
+      Cell column=2
+        Text "$10"
+    Row index=1
+      Cell column=0
+        Text "Item 2"
+      Cell column=1
+        Text "Second item description"
+      Cell column=2
+        Text "$20"

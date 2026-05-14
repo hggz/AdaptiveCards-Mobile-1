@@ -1,0 +1,5 @@
+VStack
+  Heading "Simple Card" [size=large weight=bolder]
+  Text "This is a simple adaptive card with basic text elements." [wrap]
+  HStack
+    Button name="Submit" [kind=submit]
