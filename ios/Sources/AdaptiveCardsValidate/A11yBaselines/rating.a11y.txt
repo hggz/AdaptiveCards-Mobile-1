@@ -4,7 +4,7 @@ VStack
   Rating name="4.5 out of 5 stars" [value=4.5 max=5 count=128]
   Text "A fantastic SDK for building mobile experiences!" [wrap]
   Text "Rate Your Experience" [size=medium weight=bolder]
-  UnsupportedElement type=Input.Rating [UNRENDERED]
+  RatingField label="How would you rate this product?" [id=userRating max=5 value=0.0 required]
   TextField label="Additional feedback (optional)" [id=feedback multiline]
     placeholder="Tell us more about your experience..."
   Text "Different Rating Sizes" [size=medium weight=bolder]

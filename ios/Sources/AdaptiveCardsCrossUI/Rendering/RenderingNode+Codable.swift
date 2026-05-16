@@ -49,6 +49,7 @@ extension RenderingNode: Codable {
         case rating
         case dateField
         case timeField
+        case ratingField
         case chart
         case tabSet
         case carousel
@@ -201,6 +202,14 @@ extension RenderingNode: Codable {
                 label: try c.decodeIfPresent(String.self, forKey: .label),
                 placeholder: try c.decodeIfPresent(String.self, forKey: .placeholder),
                 value: try c.decodeIfPresent(String.self, forKey: .value),
+                isRequired: try c.decode(Bool.self, forKey: .isRequired)
+            )
+        case .ratingField:
+            self = .ratingField(
+                id: try c.decode(String.self, forKey: .id),
+                label: try c.decodeIfPresent(String.self, forKey: .label),
+                value: try c.decode(Double.self, forKey: .value),
+                max: try c.decode(Int.self, forKey: .max),
                 isRequired: try c.decode(Bool.self, forKey: .isRequired)
             )
         case .chart:
@@ -385,6 +394,14 @@ extension RenderingNode: Codable {
             try c.encodeIfPresent(label, forKey: .label)
             try c.encodeIfPresent(placeholder, forKey: .placeholder)
             try c.encodeIfPresent(value, forKey: .value)
+            try c.encode(isRequired, forKey: .isRequired)
+
+        case let .ratingField(id, label, value, max, isRequired):
+            try c.encode(Discriminator.ratingField, forKey: .type)
+            try c.encode(id, forKey: .id)
+            try c.encodeIfPresent(label, forKey: .label)
+            try c.encode(value, forKey: .value)
+            try c.encode(max, forKey: .max)
             try c.encode(isRequired, forKey: .isRequired)
 
         case let .chart(kind, title, data, showLegend):

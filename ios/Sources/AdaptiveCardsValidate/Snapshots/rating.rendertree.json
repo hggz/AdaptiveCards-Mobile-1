@@ -39,8 +39,12 @@
       "wrap" : false
     },
     {
-      "type" : "unsupported",
-      "typeString" : "Input.Rating"
+      "id" : "userRating",
+      "isRequired" : true,
+      "label" : "How would you rate this product?",
+      "max" : 5,
+      "type" : "ratingField",
+      "value" : 0
     },
     {
       "id" : "feedback",

@@ -11,7 +11,7 @@
     {
       "isSubtle" : true,
       "size" : "default",
-      "string" : "Exercises Chart, TabSet, CompoundButton, Carousel, List, and Media in one compact card so the IR-level a11y baseline picks up coverage of the six windows-port renderer additions.",
+      "string" : "Exercises Chart, TabSet, CompoundButton, Carousel, List, Media, and Input.Rating in one compact card so the IR-level a11y baseline picks up coverage of the seven windows-port renderer additions.",
       "type" : "text",
       "weight" : "default",
       "wrap" : true
@@ -176,6 +176,14 @@
         }
       ],
       "type" : "media"
+    },
+    {
+      "id" : "satisfaction",
+      "isRequired" : false,
+      "label" : "How satisfied are you?",
+      "max" : 5,
+      "type" : "ratingField",
+      "value" : 3
     },
     {
       "autoAdvanceMs" : 4000,

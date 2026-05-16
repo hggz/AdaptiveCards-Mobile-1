@@ -215,6 +215,20 @@ public struct Renderer {
                 count: r.count
             )
 
+        case .ratingInput(let ri):
+            // Spec defaults: `max` is 5, `value` is 0 (no current
+            // rating). Interactive star bar -- the View renders a row
+            // of clickable star buttons backed by @State so the user
+            // can set the value, and the submit payload picks it up
+            // through the same Binding pattern other input fields use.
+            return .ratingField(
+                id: ri.id,
+                label: ri.label,
+                value: ri.value ?? 0,
+                max: ri.max ?? 5,
+                isRequired: ri.isRequired ?? false
+            )
+
         case .dateInput(let di):
             return .dateField(
                 id: di.id,
@@ -357,8 +371,7 @@ public struct Renderer {
 
         // Everything else: deliberate placeholder so the demo visually shows
         // what's still missing rather than silently dropping content.
-        case .ratingInput,
-             .unknown:
+        case .unknown:
             return .unsupported(typeString: element.typeString)
         }
     }

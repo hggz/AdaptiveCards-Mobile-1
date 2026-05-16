@@ -250,6 +250,20 @@ public indirect enum RenderingNode: Equatable, Sendable {
         isRequired: Bool
     )
 
+    /// Interactive `Input.Rating` field. Distinct from the read-only
+    /// `.rating` display case: this one carries an `id` and feeds
+    /// into the submit payload like any other input. The View renders
+    /// a row of clickable star buttons backed by `@State` in the
+    /// containing `AdaptiveCardView`; `value` and `max` seed the
+    /// initial form state.
+    case ratingField(
+        id: String,
+        label: String?,
+        value: Double,
+        max: Int,
+        isRequired: Bool
+    )
+
     /// Chart element. The same IR represents every chart kind
     /// (`Donut`, `Bar`, `Line`, `Pie`); the View layer picks a
     /// visualization per `kind`. The IR keeps the raw data so a11y
@@ -425,6 +439,10 @@ extension RenderingNode {
         case let (.timeField(li, ll, lp, lv, lr),
                   .timeField(ri, rl, rp, rv, rr)):
             return li == ri && ll == rl && lp == rp && lv == rv && lr == rr
+
+        case let (.ratingField(li, ll, lv, lm, lr),
+                  .ratingField(ri, rl, rv, rm, rr)):
+            return li == ri && ll == rl && lv == rv && lm == rm && lr == rr
 
         case let (.chart(lk, lt, ld, lleg), .chart(rk, rt, rd, rleg)):
             return lk == rk && lt == rt && ld == rd && lleg == rleg

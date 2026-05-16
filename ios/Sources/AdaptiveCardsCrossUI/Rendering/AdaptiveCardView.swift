@@ -40,6 +40,7 @@ public struct AdaptiveCardView: View {
     @State private var choiceValues: [String: String?]
     @State private var dateValues: [String: Date]
     @State private var timeValues: [String: Date]
+    @State private var ratingValues: [String: Double]
 
     /// Renders an already-parsed `AdaptiveCard`.
     public init(
@@ -65,6 +66,7 @@ public struct AdaptiveCardView: View {
         self._choiceValues = State(wrappedValue: seeds.choice)
         self._dateValues = State(wrappedValue: seeds.date)
         self._timeValues = State(wrappedValue: seeds.time)
+        self._ratingValues = State(wrappedValue: seeds.rating)
     }
 
     public var body: some View {
@@ -76,6 +78,7 @@ public struct AdaptiveCardView: View {
                 choiceValues: $choiceValues,
                 dateValues: $dateValues,
                 timeValues: $timeValues,
+                ratingValues: $ratingValues,
                 onAction: { dispatch($0) }
             )
             .padding(16)
@@ -118,6 +121,14 @@ public struct AdaptiveCardView: View {
         for (id, date) in timeValues {
             extraText[id] = SubmitPayload.iso8601TimeString(from: date)
         }
+        // Ratings serialise as plain numeric strings (no decimals when the
+        // value is whole). Whole-number ratings stringify as "3" rather than
+        // "3.0" so the submit payload matches what other AC clients emit.
+        for (id, value) in ratingValues {
+            extraText[id] = value.truncatingRemainder(dividingBy: 1) == 0
+                ? String(Int(value))
+                : String(value)
+        }
         return SubmitPayload.merge(
             staticJSON: staticJSON,
             textValues: extraText,
@@ -157,13 +168,15 @@ public struct AdaptiveCardView: View {
         toggle: [String: Bool],
         choice: [String: String?],
         date: [String: Date],
-        time: [String: Date]
+        time: [String: Date],
+        rating: [String: Double]
     ) {
         var text: [String: String] = [:]
         var toggle: [String: Bool] = [:]
         var choice: [String: String?] = [:]
         var date: [String: Date] = [:]
         var time: [String: Date] = [:]
+        var rating: [String: Double] = [:]
 
         func visit(_ n: RenderingNode) {
             switch n {
@@ -179,6 +192,8 @@ public struct AdaptiveCardView: View {
                 date[id] = SubmitPayload.parseDate(value) ?? Date()
             case let .timeField(id, _, _, value, _):
                 time[id] = SubmitPayload.parseTime(value) ?? Date()
+            case let .ratingField(id, _, value, _, _):
+                rating[id] = value
             case let .verticalStack(_, children),
                  let .horizontalStack(_, children):
                 children.forEach(visit)
@@ -189,7 +204,7 @@ public struct AdaptiveCardView: View {
             }
         }
         visit(node)
-        return (text, toggle, choice, date, time)
+        return (text, toggle, choice, date, time, rating)
     }
 }
 
@@ -202,6 +217,7 @@ struct AdaptiveNodeView: View {
     @Binding var choiceValues: [String: String?]
     @Binding var dateValues: [String: Date]
     @Binding var timeValues: [String: Date]
+    @Binding var ratingValues: [String: Double]
 
     let onAction: (@MainActor @Sendable (RenderingNode.ActionKind) -> Void)?
 
@@ -258,6 +274,7 @@ struct AdaptiveNodeView: View {
                         choiceValues: $choiceValues,
                         dateValues: $dateValues,
                         timeValues: $timeValues,
+                        ratingValues: $ratingValues,
                         onAction: onAction
                     )
                 }
@@ -273,6 +290,7 @@ struct AdaptiveNodeView: View {
                         choiceValues: $choiceValues,
                         dateValues: $dateValues,
                         timeValues: $timeValues,
+                        ratingValues: $ratingValues,
                         onAction: onAction
                     )
                 }
@@ -356,6 +374,7 @@ struct AdaptiveNodeView: View {
                                     choiceValues: $choiceValues,
                                     dateValues: $dateValues,
                                     timeValues: $timeValues,
+                                    ratingValues: $ratingValues,
                                     onAction: onAction
                                 )
                             }
@@ -378,6 +397,7 @@ struct AdaptiveNodeView: View {
                                         choiceValues: $choiceValues,
                                         dateValues: $dateValues,
                                         timeValues: $timeValues,
+                                        ratingValues: $ratingValues,
                                         onAction: onAction
                                     )
                                 }
@@ -398,6 +418,7 @@ struct AdaptiveNodeView: View {
                                         choiceValues: $choiceValues,
                                         dateValues: $dateValues,
                                         timeValues: $timeValues,
+                                        ratingValues: $ratingValues,
                                         onAction: onAction
                                     )
                                 }
@@ -444,6 +465,28 @@ struct AdaptiveNodeView: View {
                 ) { Text("") }
             }
 
+        case let .ratingField(id, label, _, max, isRequired):
+            // Interactive star bar. Each star is a button: tapping it
+            // sets the bound Double to its 1-based index. Filled stars
+            // show up to the current value (rounded), hollow stars for
+            // the rest. The label sits above the row exactly like the
+            // other input fields so screen-reader narration order is
+            // consistent.
+            let current = ratingValues[id] ?? 0
+            let filled = Int(current.rounded())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(fieldLabel(label, isRequired: isRequired))
+                HStack(spacing: 4) {
+                    ForEach(Array((1...Swift.max(max, 1)).enumerated()), id: \.offset) { _, star in
+                        Button(star <= filled ? "★" : "☆") {
+                            var d = ratingValues
+                            d[id] = Double(star)
+                            ratingValues = d
+                        }
+                    }
+                }
+            }
+
         case let .chart(_, title, data, _):
             // swift-cross-ui has no native chart widget. Render an
             // accessible, text-based summary: title (if any) + one row
@@ -483,6 +526,7 @@ struct AdaptiveNodeView: View {
                             choiceValues: $choiceValues,
                             dateValues: $dateValues,
                             timeValues: $timeValues,
+                            ratingValues: $ratingValues,
                             onAction: onAction
                         )
                     }
@@ -512,6 +556,7 @@ struct AdaptiveNodeView: View {
                             choiceValues: $choiceValues,
                             dateValues: $dateValues,
                             timeValues: $timeValues,
+                            ratingValues: $ratingValues,
                             onAction: onAction
                         )
                     }
@@ -553,6 +598,7 @@ struct AdaptiveNodeView: View {
                             choiceValues: $choiceValues,
                             dateValues: $dateValues,
                             timeValues: $timeValues,
+                            ratingValues: $ratingValues,
                             onAction: onAction
                         )
                     }

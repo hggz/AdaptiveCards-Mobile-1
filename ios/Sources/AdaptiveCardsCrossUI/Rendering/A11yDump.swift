@@ -264,7 +264,20 @@ public enum A11yDump {
             if let value = value, !value.isEmpty {
                 out.append("\(pad)  value=\(quote(value))")
             }
-
+        case let .ratingField(id, label, value, max, isRequired):
+            // Distinct from the read-only .rating display so reviewers
+            // see "this is interactive, screen-reader users need a way
+            // to set the value". The label is mandatory for any input
+            // (MISSING_LABEL fires if absent) and the value is dumped
+            // as %.1f so a rating of "3" reads as "3.0 of 5".
+            var attrs: [String] = ["id=\(id)", "max=\(max)"]
+            attrs.append(String(format: "value=%.1f", value))
+            if isRequired { attrs.append("required") }
+            if label == nil || (label ?? "").isEmpty { attrs.append("MISSING_LABEL") }
+            var line = "\(pad)RatingField"
+            if let label = label { line += " label=\(quote(label))" }
+            line += " [" + attrs.joined(separator: " ") + "]"
+            out.append(line)
         case let .chart(kind, title, data, showLegend):
             // Charts are a known screen-reader weak point: pixel-only
             // visualizations carry no semantic data. Enumerating every
