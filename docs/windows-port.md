@@ -1,8 +1,10 @@
 # Windows port — architecture & developer guide
 
-> Branch: `windows-port` on `hggz/AdaptiveCards-Mobile-1`
-> Status: pre-v1, single-commit-amend, draft PR deferred until the user
-> approves.
+> Branch: `windows-port` on `hggz/AdaptiveCards-Mobile-1`  
+> Status: feature-complete; draft PR deferred until the user approves.  
+> History: phased commits (one feature per commit) on top of the
+> Phase 15 a11y-baseline commit. See `git log --oneline windows-port`
+> for the running list.
 
 This document describes the Windows-native port of the SwiftUI fork of
 AdaptiveCards-Mobile. The port adds a `swift-cross-ui`-backed renderer
@@ -272,9 +274,10 @@ let jsonPlan = try host.renderJSON(json: cardJson)
 // AdaptiveCardsCrossUI library and place it in your own SceneBuilder.
 ```
 
-### C-ABI shim (sketched, not implemented in v1)
+### C-ABI shim
 
-A future `examples/embed-windows/c_abi/` directory will expose:
+`examples/embed-windows/c_abi/` exposes a `@_cdecl` shim around
+`AdaptiveCardHost`:
 
 ```c
 // adaptive_cards.h
@@ -288,34 +291,113 @@ void    ac_host_set_action_callback(ACHost*, ACActionCallback, void* userdata);
 void    ac_free(char*);
 ```
 
-This is just a sketch — the implementation lands once a host actually
-needs it. The Swift facade exists today so when the shim is added it's
-a thin `@_cdecl` wrapper around `AdaptiveCardHost`.
+`AdaptiveCardsCABI` is a static library target backed by
+`@_cdecl` Swift functions. Build via
+`examples/embed-windows/c_abi/build.ps1`; the resulting `host-demo.exe`
+links `main.c` against the static lib + Swift runtime, parses Adaptive
+Card JSON from C, and runs the renderer headlessly. CI exercises this
+path via the `windows-c-example` job.
 
 ---
 
-## What's not yet on the windows-port branch
+## Status — phased history
 
-These are all called out explicitly in the brief as v1 in-scope but
-remain to be done:
+The original brief listed a v1 scope that this branch now fully covers,
+plus several follow-ups that are also landed. Each item below maps to
+one commit on `windows-port`; see `git log --oneline windows-port` for
+the full chain.
 
-* Interactive input bindings (so `Input.Text`, `Input.Toggle`,
-  `Input.ChoiceSet` actually mutate state and feed into
-  `Action.Submit.data`).
-* Remote image loading.
-* `Table`, `ImageSet`-style grid layout, `Carousel`, `Accordion`,
-  `ProgressBar`, `Spinner`, `Rating`, chart elements.
-* Pixel-diff snapshot harness (the current snapshot diff is at the IR
-  level only).
-* A11y dump comparing against the SkypeSpaces accessibility-reviewer
-  pipeline.
-* `.github/workflows/windows-port-ci.yml` with the 5 required jobs:
-  macos-existing, linux-build, windows-build, windows-render-smoke,
-  windows-a11y-overlay.
-* Verifying the existing iOS / Android pipelines stay green after the
-  `swift-tools-version` 5.9 → 5.10 bump.
+### Renderer coverage (every AdaptiveCards 1.6 element ACCore parses)
 
-The draft PR stays parked until those land and the user gives the go.
+| Element | Phase | Status |
+|---|---|---|
+| TextBlock, RichTextBlock, Image, Container, ColumnSet | Phase 1–7 | Rendered |
+| FactSet, CodeBlock, Table, ProgressBar, Spinner, Accordion, Rating (display) | Phase 8–11 | Rendered |
+| Input.Text, Input.Number, Input.Toggle, Input.ChoiceSet, Input.Date, Input.Time | Phase 12–14 | Rendered + bound to submit payload |
+| Chart (donut / bar / line / pie), TabSet, CompoundButton | Phase 16 | Rendered |
+| Carousel | Phase 18 | Rendered |
+| List (bulleted / numbered / default) | Phase 19 | Rendered |
+| Media (audio / video) | Phase 20 | Text-fallback rendered (swift-cross-ui has no native AV widget) |
+| Input.Rating (interactive) | Phase 21 | Rendered as a clickable star bar; binds to submit payload |
+
+**UNRENDERED count across the reference set: 0.** Every spec element
+ACCore decodes now reaches the View; the renderer has no remaining
+`.unsupported` fallthrough cases.
+
+### Live behaviour
+
+* Tab and Carousel page selection lift to `@State` so users can switch
+  at runtime (Phase 22).
+* Carousel `autoAdvanceMs` drives a `.task(id:)` rotation loop with a
+  WCAG-2.2.2-compliant Pause / Resume button (Phase 23).
+* `ChartDatum.color` (`#RRGGBB` / `#RRGGBBAA`) applies to bar segments
+  via `.foregroundColor` (Phase 24).
+
+### Validation gate
+
+Three layers, all reading the same baseline files at
+`Sources/AdaptiveCardsValidate/{Snapshots,A11yBaselines}/`:
+
+* `AdaptiveCardsValidate.exe` — headless harness; 93 / 93 deterministic
+  checks covering renderer unit tests, submit-payload merges,
+  reference-card snapshot diffs, broad parse coverage, C-ABI surface,
+  and IR-level a11y baseline diffs. Runs on Windows and Linux CI.
+* `AdaptiveCardsCrossUITests` XCTest target — reads the same baselines
+  via three XCTestCase methods (Phase 25):
+  `testEveryReferenceCardMatchesItsSnapshotBaseline`,
+  `testEveryReferenceCardMatchesItsA11yBaseline`,
+  `testAggregateA11yViolationBudget` (locks MISSING_LABEL: 0 /
+  MISSING_ALT: 1 / UNRENDERED: 0). Exercised on macOS via
+  `swift test --parallel`.
+* PrintWindow pixel-diff smoke job — captures each reference card
+  from a live `AdaptiveCardsWindowsDemo.exe` window, diffs against
+  `Screenshots/<card>.png` baselines at ≤2% drift tolerance. Catches
+  visual regressions the IR can't see.
+
+### Reference cards (8)
+
+The original 7 (`simple-text`, `containers`, `input-form`,
+`all-actions`, `table`, `rating`, `edge-empty-card`) plus
+`windows-extras.json` (Phase 17, extended in 18/19/20/21/24) which
+consolidates Chart, TabSet, CompoundButton, Carousel, List, Media, and
+Input.Rating into one card so all later renderer additions pick up
+baseline coverage without adding more reference files.
+
+### CI matrix
+
+`.github/workflows/windows-port-ci.yml` runs five required jobs:
+
+* **macos-existing** — confirms the iOS package still builds (sanity
+  check the `swift-tools-version` bump didn't regress).
+* **linux-build** — builds the four windows-port targets in a
+  `swift:6.3.2-jammy` container; runs `swift run AdaptiveCardsValidate`
+  so IR snapshot + a11y baseline drift gets caught on Linux too.
+* **windows-build (REQUIRED)** — builds all four targets, runs
+  `AdaptiveCardsValidate.exe`'s 93 checks.
+* **windows-render-smoke** — PrintWindow capture + pixel diff per
+  reference card. Uploads the fresh captures as an artifact so
+  baseline refresh is mechanical.
+* **windows-c-example** — builds `examples/embed-windows/c_abi/`,
+  links `main.c` against the static lib, runs the produced exe.
+
+All five jobs are hard-required; none use `continue-on-error`.
+
+### What's intentionally NOT on this branch
+
+* No changes to `Sources/ACRendering`, `Sources/ACInputs`,
+  `Sources/ACActions`, `Sources/ACAccessibility`, `Sources/ACFluentUI`,
+  `Sources/ACMarkdown`, `Sources/ACCharts`, or anything iOS-specific.
+  The windows-port is strictly additive.
+* No changes to `android/`.
+* No new entries in `shared/RENDERING_PARITY_CHECKLIST.md` or
+  `docs/architecture/PARITY_MATRIX.md` — those are iOS-vs-Android
+  parity docs by design; Windows status lives here in
+  `docs/windows-port.md`.
+* No production Carousel auto-rotation timer behaviour without a
+  user-pause control (every auto-rotating Carousel surfaces a
+  Pause / Resume button per WCAG 2.2.2).
+
+The draft PR stays parked until the user gives the go.
 
 ---
 
@@ -327,5 +409,7 @@ The draft PR stays parked until those land and the user gives the go.
   `hggz/AdaptiveCards-Mobile-1`.
 * Never push from `hugogonzalez_microsoft` (corporate AAD account) or
   `hggzm` (Microsoft-fork account).
-* Single-commit-amend discipline on `windows-port` until the branch is
-  PR-ready; then split into logical commits if useful.
+* History is **phased commits** — one feature per commit, descriptive
+  multi-paragraph commit messages, every commit independently passes
+  CI. Don't squash into one giant commit before opening the PR; the
+  shape of the history is the audit trail.
