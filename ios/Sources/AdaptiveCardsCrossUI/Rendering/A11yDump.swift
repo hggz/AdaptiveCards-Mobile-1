@@ -340,6 +340,17 @@ public enum A11yDump {
                 }
             }
 
+        case let .list(style, items):
+            // Screen readers announce "list, N items" before iterating,
+            // so the dump leads with the same two facts. Each item is
+            // walked at one indent level deeper; the marker is implicit
+            // in `style=` since assistive tech derives it from the role
+            // rather than reading the literal `*` / `1.` characters.
+            out.append("\(pad)List count=\(items.count) [style=\(style.rawValue)]")
+            for item in items {
+                walk(item, indent: indent + 1, into: &out)
+            }
+
         case let .compoundButton(title, subtitle, icon, action):
             // Compound buttons combine a title + subtitle + optional icon
             // into one focusable button; the accessible name should be

@@ -530,6 +530,35 @@ struct AdaptiveNodeView: View {
                 }
             }
 
+        case let .list(style, items):
+            // Render items as marker + child rows. `.default` produces
+            // an empty marker so it renders the same as a vertical
+            // stack; `.bulleted` and `.numbered` produce explicit
+            // markers. The marker is a sibling `Text` (not a prefix
+            // baked into the child's content) so the child can be any
+            // RenderingNode -- a TextBlock, an Image, even a nested
+            // Container -- without us having to bake list semantics
+            // into every child kind.
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
+                    HStack(alignment: .top, spacing: 6) {
+                        let marker = listMarker(style: style, index: idx)
+                        if !marker.isEmpty {
+                            Text(marker)
+                        }
+                        AdaptiveNodeView(
+                            node: item,
+                            textValues: $textValues,
+                            toggleValues: $toggleValues,
+                            choiceValues: $choiceValues,
+                            dateValues: $dateValues,
+                            timeValues: $timeValues,
+                            onAction: onAction
+                        )
+                    }
+                }
+            }
+
         case let .compoundButton(title, subtitle, _, action):
             // Two-line button (title on top, subtitle below). Wires the
             // attached action through the standard onAction callback so
@@ -709,6 +738,19 @@ struct AdaptiveNodeView: View {
             parts.append(i == selectedIndex ? "●" : "◯")
         }
         return parts.joined(separator: " ")
+    }
+
+    // MARK: - List marker
+
+    /// Marker text prefixed to each `.list` item. The View places the
+    /// returned string in a sibling `Text` view next to the child node
+    /// so list semantics never need to be baked into the child renderer.
+    private func listMarker(style: ListStyle, index: Int) -> String {
+        switch style {
+        case .default: return ""
+        case .bulleted: return "•"
+        case .numbered: return "\(index + 1)."
+        }
     }
 }
 #endif

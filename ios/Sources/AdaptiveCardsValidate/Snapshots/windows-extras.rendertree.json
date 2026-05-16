@@ -11,7 +11,7 @@
     {
       "isSubtle" : true,
       "size" : "default",
-      "string" : "Exercises Chart, TabSet, CompoundButton, and Carousel in one compact card so the IR-level a11y baseline picks up coverage of the four windows-port renderer additions.",
+      "string" : "Exercises Chart, TabSet, CompoundButton, Carousel, and List in one compact card so the IR-level a11y baseline picks up coverage of the five windows-port renderer additions.",
       "type" : "text",
       "weight" : "default",
       "wrap" : true
@@ -101,6 +101,66 @@
       "subtitle" : "Full analytics view",
       "title" : "Open Dashboard",
       "type" : "compoundButton"
+    },
+    {
+      "items" : [
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Wire renderer",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Wire view",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Wire a11y dump",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        }
+      ],
+      "style" : "bulleted",
+      "type" : "list"
+    },
+    {
+      "items" : [
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Add IR case",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Add Codable round-trip",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Add reference card + baselines",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        }
+      ],
+      "style" : "numbered",
+      "type" : "list"
     },
     {
       "autoAdvanceMs" : 4000,

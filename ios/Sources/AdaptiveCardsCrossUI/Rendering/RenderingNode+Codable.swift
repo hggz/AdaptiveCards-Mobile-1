@@ -52,6 +52,7 @@ extension RenderingNode: Codable {
         case chart
         case tabSet
         case carousel
+        case list
         case compoundButton
         case button
         case unsupported
@@ -76,6 +77,7 @@ extension RenderingNode: Codable {
         case data, showLegend
         case tabs, selectedTabIndex
         case pages, selectedPageIndex, autoAdvanceMs, selectAction
+        case style, items
         case subtitle, icon, action
     }
 
@@ -230,6 +232,11 @@ extension RenderingNode: Codable {
                 },
                 selectedPageIndex: try c.decode(Int.self, forKey: .selectedPageIndex),
                 autoAdvanceMs: try c.decodeIfPresent(Int.self, forKey: .autoAdvanceMs)
+            )
+        case .list:
+            self = .list(
+                style: try c.decode(ListStyle.self, forKey: .style),
+                items: try c.decode([RenderingNode].self, forKey: .items)
             )
         case .compoundButton:
             self = .compoundButton(
@@ -402,6 +409,11 @@ extension RenderingNode: Codable {
             )
             try c.encode(selectedPageIndex, forKey: .selectedPageIndex)
             try c.encodeIfPresent(autoAdvanceMs, forKey: .autoAdvanceMs)
+
+        case let .list(style, items):
+            try c.encode(Discriminator.list, forKey: .type)
+            try c.encode(style, forKey: .style)
+            try c.encode(items, forKey: .items)
 
         case let .compoundButton(title, subtitle, icon, action):
             try c.encode(Discriminator.compoundButton, forKey: .type)

@@ -1,6 +1,6 @@
 VStack
   Heading "Windows Extras" [size=large weight=bolder]
-  Text "Exercises Chart, TabSet, CompoundButton, and Carousel in one compact card so the IR-level a11y baseline picks up coverage of the four windows-port renderer additions." [wrap subtle]
+  Text "Exercises Chart, TabSet, CompoundButton, Carousel, and List in one compact card so the IR-level a11y baseline picks up coverage of the five windows-port renderer additions." [wrap subtle]
   Chart title="Sales by Region" [kind=donut legend]
     ChartData count=3
       Datum label="Americas" [value=50.00]
@@ -18,6 +18,14 @@ VStack
     Tab id=actions title="Actions" [index=1 unselected]
   CompoundButton name="Open Dashboard" [action=openUrl icon=chart.bar.fill]
     subtitle="Full analytics view"
+  List count=3 [style=bulleted]
+    Text "Wire renderer"
+    Text "Wire view"
+    Text "Wire a11y dump"
+  List count=3 [style=numbered]
+    Text "Add IR case"
+    Text "Add Codable round-trip"
+    Text "Add reference card + baselines"
   Carousel selectedIndex=1 count=3 [autoAdvanceMs=4000]
     Page id=TextBlock_TextBlock [index=0 unselected NO_ACTION]
     Page id=TextBlock_TextBlock [index=1 selected NO_ACTION]

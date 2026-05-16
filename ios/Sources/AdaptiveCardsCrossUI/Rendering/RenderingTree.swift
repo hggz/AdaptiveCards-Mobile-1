@@ -69,6 +69,15 @@ public enum ChartKind: String, Equatable, Sendable, Codable {
     case pie
 }
 
+/// Marker convention for `List` items. `default` produces no marker
+/// (essentially a vertical stack), `bulleted` uses `•`, `numbered`
+/// uses `1.`, `2.`, ... Per the AdaptiveCards 1.6 spec.
+public enum ListStyle: String, Equatable, Sendable, Codable {
+    case `default`
+    case bulleted
+    case numbered
+}
+
 /// One tab in a `TabSet`. Body is rendered when this tab is the
 /// selected one; the a11y dump enumerates every tab regardless.
 public struct TabItem: Equatable, Sendable {
@@ -257,6 +266,14 @@ public indirect enum RenderingNode: Equatable, Sendable {
         autoAdvanceMs: Int?
     )
 
+    /// `List` element. A vertical stack of child nodes prefixed with
+    /// a marker per `style` (none / `•` / `1.`). Distinct from the
+    /// generic `verticalStack` because the marker is part of the
+    /// element's accessible semantics: screen readers should announce
+    /// "list, N items" before iterating, which the View can layer on
+    /// top of the IR.
+    case list(style: ListStyle, items: [RenderingNode])
+
     /// `CompoundButton` element. Renders as a button bearing a title
     /// + subtitle stack; firing the action goes through the standard
     /// `onAction` callback.
@@ -392,6 +409,9 @@ extension RenderingNode {
 
         case let (.carousel(lp, ls, lt), .carousel(rp, rs, rt)):
             return lp == rp && ls == rs && lt == rt
+
+        case let (.list(ls, li), .list(rs, ri)):
+            return ls == rs && li == ri
 
         case let (.compoundButton(lt, ls, li, la),
                   .compoundButton(rt, rs, ri, ra)):

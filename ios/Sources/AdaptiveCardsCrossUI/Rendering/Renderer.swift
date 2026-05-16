@@ -326,11 +326,24 @@ public struct Renderer {
                 autoAdvanceMs: cs.timer
             )
 
+        case .list(let l):
+            // Map the spec's string `style` to the IR enum, defaulting
+            // to `.default` for unknown values so we never lose the list
+            // (better to render markerless than to fall back to
+            // `.unsupported` and drop content).
+            let style: ListStyle = {
+                guard let s = l.style?.lowercased() else { return .default }
+                return ListStyle(rawValue: s) ?? .default
+            }()
+            return .list(
+                style: style,
+                items: l.items.filter(\.isVisible).map { render(element: $0) }
+            )
+
         // Everything else: deliberate placeholder so the demo visually shows
         // what's still missing rather than silently dropping content.
         case .media,
              .ratingInput,
-             .list,
              .unknown:
             return .unsupported(typeString: element.typeString)
         }

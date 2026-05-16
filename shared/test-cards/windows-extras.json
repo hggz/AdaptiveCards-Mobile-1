@@ -11,7 +11,7 @@
     },
     {
       "type": "TextBlock",
-      "text": "Exercises Chart, TabSet, CompoundButton, and Carousel in one compact card so the IR-level a11y baseline picks up coverage of the four windows-port renderer additions.",
+      "text": "Exercises Chart, TabSet, CompoundButton, Carousel, and List in one compact card so the IR-level a11y baseline picks up coverage of the five windows-port renderer additions.",
       "wrap": true,
       "isSubtle": true
     },
@@ -81,6 +81,26 @@
         "title": "Open",
         "url": "https://example.com/dashboard"
       }
+    },
+    {
+      "type": "List",
+      "id": "checklistBulleted",
+      "style": "bulleted",
+      "items": [
+        { "type": "TextBlock", "text": "Wire renderer" },
+        { "type": "TextBlock", "text": "Wire view" },
+        { "type": "TextBlock", "text": "Wire a11y dump" }
+      ]
+    },
+    {
+      "type": "List",
+      "id": "stepsNumbered",
+      "style": "numbered",
+      "items": [
+        { "type": "TextBlock", "text": "Add IR case" },
+        { "type": "TextBlock", "text": "Add Codable round-trip" },
+        { "type": "TextBlock", "text": "Add reference card + baselines" }
+      ]
     },
     {
       "type": "Carousel",
