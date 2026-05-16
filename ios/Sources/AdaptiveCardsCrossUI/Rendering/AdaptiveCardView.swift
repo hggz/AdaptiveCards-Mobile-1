@@ -504,76 +504,41 @@ struct AdaptiveNodeView: View {
             }
 
         case let .tabSet(tabs, selectedTabIndex):
-            // Renders the tab strip as a horizontal stack of buttons
-            // (the selected one prefixed with `*`), followed by the
-            // currently-selected tab's content. Switching tabs at
-            // runtime via the button isn't wired in v1 — that would
-            // require lifting the selection to @State; the renderer
-            // emits a static initial selection.
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    ForEach(Array(tabs.enumerated()), id: \.offset) { idx, tab in
-                        Text((idx == selectedTabIndex ? "* " : "  ") + tab.title)
-                    }
-                }
-                Text(String(repeating: "─", count: 24))
-                if tabs.indices.contains(selectedTabIndex) {
-                    ForEach(Array(tabs[selectedTabIndex].content.enumerated()), id: \.offset) { _, child in
-                        AdaptiveNodeView(
-                            node: child,
-                            textValues: $textValues,
-                            toggleValues: $toggleValues,
-                            choiceValues: $choiceValues,
-                            dateValues: $dateValues,
-                            timeValues: $timeValues,
-                            ratingValues: $ratingValues,
-                            onAction: onAction
-                        )
-                    }
-                }
-            }
+            // Delegates to a dedicated sub-View that owns the live
+            // selection via its own `@State`. The IR's
+            // `selectedTabIndex` seeds the initial value; users can
+            // switch tabs at runtime by tapping the tab strip.
+            TabSetView(
+                tabs: tabs,
+                initialIndex: selectedTabIndex,
+                textValues: $textValues,
+                toggleValues: $toggleValues,
+                choiceValues: $choiceValues,
+                dateValues: $dateValues,
+                timeValues: $timeValues,
+                ratingValues: $ratingValues,
+                onAction: onAction
+            )
 
         case let .carousel(pages, selectedPageIndex, _):
-            // Renders the currently-selected page's content plus a
-            // `Page N of M` indicator and a row of bullet markers so
-            // sighted users can see total length and current position.
-            // Live page switching is parked alongside TabSet's, so the
-            // View consumes the static `selectedPageIndex` emitted by
-            // the renderer rather than tracking selection in @State.
-            // `autoAdvanceMs` is intentionally ignored here -- timer-
-            // driven rotation lands with live switching.
-            VStack(alignment: .leading, spacing: 6) {
-                if !pages.isEmpty,
-                   pages.indices.contains(selectedPageIndex) {
-                    Text(carouselPageIndicator(selectedIndex: selectedPageIndex, total: pages.count))
-                    Text(carouselDotStrip(selectedIndex: selectedPageIndex, total: pages.count))
-                    Text(String(repeating: "─", count: 24))
-                    ForEach(Array(pages[selectedPageIndex].content.enumerated()), id: \.offset) { _, child in
-                        AdaptiveNodeView(
-                            node: child,
-                            textValues: $textValues,
-                            toggleValues: $toggleValues,
-                            choiceValues: $choiceValues,
-                            dateValues: $dateValues,
-                            timeValues: $timeValues,
-                            ratingValues: $ratingValues,
-                            onAction: onAction
-                        )
-                    }
-                    // Render the page's selectAction (if any) as a row
-                    // button below the content; it's the canonical
-                    // "click anywhere on the page" target the spec
-                    // describes, surfaced explicitly for keyboard /
-                    // screen-reader users.
-                    if let action = pages[selectedPageIndex].selectAction {
-                        Button("Open page") {
-                            onAction?(action)
-                        }
-                    }
-                } else {
-                    Text("[Carousel: empty]")
-                }
-            }
+            // Delegates to a dedicated sub-View that owns the live
+            // page selection via `@State`. The IR's
+            // `selectedPageIndex` seeds the initial value; prev / next
+            // buttons let the user navigate. `autoAdvanceMs` is
+            // captured in the IR but timer-driven rotation is parked
+            // for a follow-up phase (swift-cross-ui's Timer story
+            // needs its own design pass).
+            CarouselView(
+                pages: pages,
+                initialIndex: selectedPageIndex,
+                textValues: $textValues,
+                toggleValues: $toggleValues,
+                choiceValues: $choiceValues,
+                dateValues: $dateValues,
+                timeValues: $timeValues,
+                ratingValues: $ratingValues,
+                onAction: onAction
+            )
 
         case let .list(style, items):
             // Render items as marker + child rows. `.default` produces
@@ -822,6 +787,181 @@ struct AdaptiveNodeView: View {
         case .bulleted: return "•"
         case .numbered: return "\(index + 1)."
         }
+    }
+}
+
+// MARK: - TabSetView
+
+/// Live tab-selection View. The IR's `selectedTabIndex` seeds the
+/// initial `@State`; tapping a tab button updates the state and
+/// re-renders the body so the new tab's children appear.
+///
+/// Pulled out of `AdaptiveNodeView`'s switch because `@State` only
+/// survives across body invocations when it lives on a stable View
+/// identity -- the switch's transient widgets don't qualify, so a
+/// dedicated wrapper struct gives us per-tabset state.
+struct TabSetView: View {
+    let tabs: [TabItem]
+
+    @State private var currentIndex: Int
+
+    @Binding var textValues: [String: String]
+    @Binding var toggleValues: [String: Bool]
+    @Binding var choiceValues: [String: String?]
+    @Binding var dateValues: [String: Date]
+    @Binding var timeValues: [String: Date]
+    @Binding var ratingValues: [String: Double]
+
+    let onAction: (@MainActor @Sendable (RenderingNode.ActionKind) -> Void)?
+
+    init(
+        tabs: [TabItem],
+        initialIndex: Int,
+        textValues: Binding<[String: String]>,
+        toggleValues: Binding<[String: Bool]>,
+        choiceValues: Binding<[String: String?]>,
+        dateValues: Binding<[String: Date]>,
+        timeValues: Binding<[String: Date]>,
+        ratingValues: Binding<[String: Double]>,
+        onAction: (@MainActor @Sendable (RenderingNode.ActionKind) -> Void)?
+    ) {
+        self.tabs = tabs
+        // Clamp into the legal range so a renderer that emits a
+        // selectedTabIndex outside [0, tabs.count) doesn't crash the
+        // view; we already do this in the renderer for Carousel but
+        // TabSet's renderer trusts the resolved index.
+        let safe = tabs.indices.contains(initialIndex) ? initialIndex : 0
+        self._currentIndex = State(wrappedValue: safe)
+        self._textValues = textValues
+        self._toggleValues = toggleValues
+        self._choiceValues = choiceValues
+        self._dateValues = dateValues
+        self._timeValues = timeValues
+        self._ratingValues = ratingValues
+        self.onAction = onAction
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                ForEach(Array(tabs.enumerated()), id: \.offset) { idx, tab in
+                    Button((idx == currentIndex ? "* " : "  ") + tab.title) {
+                        currentIndex = idx
+                    }
+                }
+            }
+            Text(String(repeating: "─", count: 24))
+            if tabs.indices.contains(currentIndex) {
+                ForEach(Array(tabs[currentIndex].content.enumerated()), id: \.offset) { _, child in
+                    AdaptiveNodeView(
+                        node: child,
+                        textValues: $textValues,
+                        toggleValues: $toggleValues,
+                        choiceValues: $choiceValues,
+                        dateValues: $dateValues,
+                        timeValues: $timeValues,
+                        ratingValues: $ratingValues,
+                        onAction: onAction
+                    )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - CarouselView
+
+/// Live carousel-paging View. The IR's `selectedPageIndex` seeds the
+/// initial `@State`; explicit Prev / Next buttons (plus the
+/// page-level `selectAction`, if present) drive page transitions.
+///
+/// Timer-driven auto-rotation (`autoAdvanceMs`) is not wired in this
+/// phase -- swift-cross-ui's Timer / async-driven mutation story
+/// needs its own design pass and the IR already carries the timer
+/// value so a future commit can light it up without an IR re-shape.
+struct CarouselView: View {
+    let pages: [CarouselPageItem]
+
+    @State private var currentIndex: Int
+
+    @Binding var textValues: [String: String]
+    @Binding var toggleValues: [String: Bool]
+    @Binding var choiceValues: [String: String?]
+    @Binding var dateValues: [String: Date]
+    @Binding var timeValues: [String: Date]
+    @Binding var ratingValues: [String: Double]
+
+    let onAction: (@MainActor @Sendable (RenderingNode.ActionKind) -> Void)?
+
+    init(
+        pages: [CarouselPageItem],
+        initialIndex: Int,
+        textValues: Binding<[String: String]>,
+        toggleValues: Binding<[String: Bool]>,
+        choiceValues: Binding<[String: String?]>,
+        dateValues: Binding<[String: Date]>,
+        timeValues: Binding<[String: Date]>,
+        ratingValues: Binding<[String: Double]>,
+        onAction: (@MainActor @Sendable (RenderingNode.ActionKind) -> Void)?
+    ) {
+        self.pages = pages
+        let safe = pages.indices.contains(initialIndex) ? initialIndex : 0
+        self._currentIndex = State(wrappedValue: safe)
+        self._textValues = textValues
+        self._toggleValues = toggleValues
+        self._choiceValues = choiceValues
+        self._dateValues = dateValues
+        self._timeValues = timeValues
+        self._ratingValues = ratingValues
+        self.onAction = onAction
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !pages.isEmpty, pages.indices.contains(currentIndex) {
+                Text("Page \(currentIndex + 1) of \(pages.count)")
+                Text(carouselDotStrip(selectedIndex: currentIndex, total: pages.count))
+                HStack(spacing: 6) {
+                    Button("◀ Prev") {
+                        if currentIndex > 0 { currentIndex -= 1 }
+                    }
+                    Button("Next ▶") {
+                        if currentIndex < pages.count - 1 { currentIndex += 1 }
+                    }
+                }
+                Text(String(repeating: "─", count: 24))
+                ForEach(Array(pages[currentIndex].content.enumerated()), id: \.offset) { _, child in
+                    AdaptiveNodeView(
+                        node: child,
+                        textValues: $textValues,
+                        toggleValues: $toggleValues,
+                        choiceValues: $choiceValues,
+                        dateValues: $dateValues,
+                        timeValues: $timeValues,
+                        ratingValues: $ratingValues,
+                        onAction: onAction
+                    )
+                }
+                if let action = pages[currentIndex].selectAction {
+                    Button("Open page") {
+                        onAction?(action)
+                    }
+                }
+            } else {
+                Text("[Carousel: empty]")
+            }
+        }
+    }
+
+    /// Bullet strip: `● ● ◯ ● ●` -- filled bullet on the selected
+    /// index, hollow on the others. Duplicated here from
+    /// `AdaptiveNodeView`'s helper so this struct stays self-contained.
+    private func carouselDotStrip(selectedIndex: Int, total: Int) -> String {
+        var parts: [String] = []
+        for i in 0..<total {
+            parts.append(i == selectedIndex ? "●" : "◯")
+        }
+        return parts.joined(separator: " ")
     }
 }
 #endif
