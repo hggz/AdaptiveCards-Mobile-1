@@ -520,17 +520,18 @@ struct AdaptiveNodeView: View {
                 onAction: onAction
             )
 
-        case let .carousel(pages, selectedPageIndex, _):
+        case let .carousel(pages, selectedPageIndex, autoAdvanceMs):
             // Delegates to a dedicated sub-View that owns the live
             // page selection via `@State`. The IR's
             // `selectedPageIndex` seeds the initial value; prev / next
-            // buttons let the user navigate. `autoAdvanceMs` is
-            // captured in the IR but timer-driven rotation is parked
-            // for a follow-up phase (swift-cross-ui's Timer story
-            // needs its own design pass).
+            // buttons let the user navigate. When `autoAdvanceMs` is
+            // set the CarouselView runs a swift-cross-ui `.task` that
+            // advances the page on a timer; a Pause / Resume button
+            // makes the rotation user-controllable per WCAG 2.2.2.
             CarouselView(
                 pages: pages,
                 initialIndex: selectedPageIndex,
+                autoAdvanceMs: autoAdvanceMs,
                 textValues: $textValues,
                 toggleValues: $toggleValues,
                 choiceValues: $choiceValues,
@@ -875,14 +876,21 @@ struct TabSetView: View {
 /// initial `@State`; explicit Prev / Next buttons (plus the
 /// page-level `selectAction`, if present) drive page transitions.
 ///
-/// Timer-driven auto-rotation (`autoAdvanceMs`) is not wired in this
-/// phase -- swift-cross-ui's Timer / async-driven mutation story
-/// needs its own design pass and the IR already carries the timer
-/// value so a future commit can light it up without an IR re-shape.
+/// When `autoAdvanceMs` is set on the IR the view runs a swift-cross-
+/// ui `.task` rotation loop that advances `currentIndex` every N
+/// milliseconds and wraps at the end. A user-visible Pause / Resume
+/// button toggles `isPaused`; flipping that flag invalidates the
+/// task's id and cancels the in-flight sleep, so the rotation halts
+/// immediately. This satisfies WCAG 2.2.2 "Pause, Stop, Hide":
+/// any auto-rotating content lasting longer than 5 seconds must be
+/// pausable, and the Pause control must be accessible by keyboard
+/// and screen reader (a Button satisfies both).
 struct CarouselView: View {
     let pages: [CarouselPageItem]
+    let autoAdvanceMs: Int?
 
     @State private var currentIndex: Int
+    @State private var isPaused: Bool = false
 
     @Binding var textValues: [String: String]
     @Binding var toggleValues: [String: Bool]
@@ -896,6 +904,7 @@ struct CarouselView: View {
     init(
         pages: [CarouselPageItem],
         initialIndex: Int,
+        autoAdvanceMs: Int?,
         textValues: Binding<[String: String]>,
         toggleValues: Binding<[String: Bool]>,
         choiceValues: Binding<[String: String?]>,
@@ -905,6 +914,7 @@ struct CarouselView: View {
         onAction: (@MainActor @Sendable (RenderingNode.ActionKind) -> Void)?
     ) {
         self.pages = pages
+        self.autoAdvanceMs = autoAdvanceMs
         let safe = pages.indices.contains(initialIndex) ? initialIndex : 0
         self._currentIndex = State(wrappedValue: safe)
         self._textValues = textValues
@@ -927,6 +937,16 @@ struct CarouselView: View {
                     }
                     Button("Next ▶") {
                         if currentIndex < pages.count - 1 { currentIndex += 1 }
+                    }
+                    // Only surface the Pause control when there's
+                    // actually a timer to pause -- a non-rotating
+                    // carousel doesn't need it and the WCAG
+                    // requirement is specifically about auto-updating
+                    // content.
+                    if autoAdvanceMs != nil {
+                        Button(isPaused ? "▶ Resume" : "⏸ Pause") {
+                            isPaused.toggle()
+                        }
                     }
                 }
                 Text(String(repeating: "─", count: 24))
@@ -951,6 +971,28 @@ struct CarouselView: View {
                 Text("[Carousel: empty]")
             }
         }
+        // The task id encodes every condition that should restart the
+        // rotation: pause toggles, ms changes (currently static, but
+        // future hot-reload scenarios could swap the IR), and the
+        // page count. swift-cross-ui's `.task(id:)` cancels the in-
+        // flight task whenever the id changes and on view disappear.
+        .task(id: RotationKey(ms: autoAdvanceMs, paused: isPaused, count: pages.count)) {
+            guard let ms = autoAdvanceMs, ms > 0, !isPaused, pages.count > 1 else {
+                return
+            }
+            let nanos = UInt64(ms) * 1_000_000
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: nanos)
+                if Task.isCancelled { break }
+                await MainActor.run {
+                    // Wrap at the end so a multi-page carousel
+                    // cycles forever; matches the behaviour of every
+                    // other AC client and what users expect from a
+                    // marketing-style carousel.
+                    currentIndex = (currentIndex + 1) % pages.count
+                }
+            }
+        }
     }
 
     /// Bullet strip: `● ● ◯ ● ●` -- filled bullet on the selected
@@ -962,6 +1004,16 @@ struct CarouselView: View {
             parts.append(i == selectedIndex ? "●" : "◯")
         }
         return parts.joined(separator: " ")
+    }
+
+    /// `Equatable` key for `.task(id:)`. swift-cross-ui restarts the
+    /// task whenever any field of this struct changes, so toggling
+    /// `isPaused` immediately cancels the running sleep + rotation
+    /// loop -- which is exactly the WCAG-mandated "Pause" behaviour.
+    private struct RotationKey: Equatable {
+        let ms: Int?
+        let paused: Bool
+        let count: Int
     }
 }
 #endif
