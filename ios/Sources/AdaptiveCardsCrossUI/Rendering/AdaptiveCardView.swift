@@ -489,6 +489,47 @@ struct AdaptiveNodeView: View {
                 }
             }
 
+        case let .carousel(pages, selectedPageIndex, _):
+            // Renders the currently-selected page's content plus a
+            // `Page N of M` indicator and a row of bullet markers so
+            // sighted users can see total length and current position.
+            // Live page switching is parked alongside TabSet's, so the
+            // View consumes the static `selectedPageIndex` emitted by
+            // the renderer rather than tracking selection in @State.
+            // `autoAdvanceMs` is intentionally ignored here -- timer-
+            // driven rotation lands with live switching.
+            VStack(alignment: .leading, spacing: 6) {
+                if !pages.isEmpty,
+                   pages.indices.contains(selectedPageIndex) {
+                    Text(carouselPageIndicator(selectedIndex: selectedPageIndex, total: pages.count))
+                    Text(carouselDotStrip(selectedIndex: selectedPageIndex, total: pages.count))
+                    Text(String(repeating: "─", count: 24))
+                    ForEach(Array(pages[selectedPageIndex].content.enumerated()), id: \.offset) { _, child in
+                        AdaptiveNodeView(
+                            node: child,
+                            textValues: $textValues,
+                            toggleValues: $toggleValues,
+                            choiceValues: $choiceValues,
+                            dateValues: $dateValues,
+                            timeValues: $timeValues,
+                            onAction: onAction
+                        )
+                    }
+                    // Render the page's selectAction (if any) as a row
+                    // button below the content; it's the canonical
+                    // "click anywhere on the page" target the spec
+                    // describes, surfaced explicitly for keyboard /
+                    // screen-reader users.
+                    if let action = pages[selectedPageIndex].selectAction {
+                        Button("Open page") {
+                            onAction?(action)
+                        }
+                    }
+                } else {
+                    Text("[Carousel: empty]")
+                }
+            }
+
         case let .compoundButton(title, subtitle, _, action):
             // Two-line button (title on top, subtitle below). Wires the
             // attached action through the standard onAction callback so
@@ -649,6 +690,25 @@ struct AdaptiveNodeView: View {
             ? String(format: "%.0f", value)
             : String(format: "%.2f", value)
         return "\(label)  \(bar)  \(formattedValue)"
+    }
+
+    // MARK: - Carousel text indicators
+
+    /// "Page 2 of 5" style indicator. 1-based for the user-facing
+    /// string so screen-reader narration sounds natural.
+    private func carouselPageIndicator(selectedIndex: Int, total: Int) -> String {
+        return "Page \(selectedIndex + 1) of \(total)"
+    }
+
+    /// Bullet strip: `● ● ◯ ● ●` -- filled bullet on the selected
+    /// index, hollow on the others. Provides a quick visual cue of
+    /// position + total without expanding to per-page thumbnails.
+    private func carouselDotStrip(selectedIndex: Int, total: Int) -> String {
+        var parts: [String] = []
+        for i in 0..<total {
+            parts.append(i == selectedIndex ? "●" : "◯")
+        }
+        return parts.joined(separator: " ")
     }
 }
 #endif

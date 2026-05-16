@@ -299,10 +299,36 @@ public struct Renderer {
                 action: kind
             )
 
+        case .carousel(let cs):
+            // Resolve which page is initially shown. The spec field
+            // `initialPage` is an integer index (not an id) so we
+            // defensively clamp into 0..<pages.count, defaulting to 0
+            // when the index is out of range, negative, or absent.
+            let initial = cs.initialPage ?? 0
+            let safeIndex = (cs.pages.isEmpty || initial < 0 || initial >= cs.pages.count)
+                ? 0
+                : initial
+            let pageItems: [CarouselPageItem] = cs.pages.map { page in
+                let action: RenderingNode.ActionKind? = {
+                    guard let a = page.selectAction else { return nil }
+                    if case let .button(_, k) = render(action: a) { return k }
+                    return nil
+                }()
+                return CarouselPageItem(
+                    id: page.id,
+                    content: page.items.filter(\.isVisible).map { render(element: $0) },
+                    selectAction: action
+                )
+            }
+            return .carousel(
+                pages: pageItems,
+                selectedPageIndex: safeIndex,
+                autoAdvanceMs: cs.timer
+            )
+
         // Everything else: deliberate placeholder so the demo visually shows
         // what's still missing rather than silently dropping content.
         case .media,
-             .carousel,
              .ratingInput,
              .list,
              .unknown:

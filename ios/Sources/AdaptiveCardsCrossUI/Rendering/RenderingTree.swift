@@ -83,6 +83,27 @@ public struct TabItem: Equatable, Sendable {
     }
 }
 
+/// One slide in a `Carousel`. Body is rendered when this page is the
+/// currently-selected one (in v1 that means `selectedPageIndex` from
+/// the IR; live page switching is parked alongside TabSet's). The
+/// optional `selectAction` is the page-level click target, propagated
+/// from `CarouselPage.selectAction` in ACCore.
+public struct CarouselPageItem: Equatable, Sendable {
+    public var id: String
+    public var content: [RenderingNode]
+    public var selectAction: RenderingNode.ActionKind?
+
+    public init(
+        id: String,
+        content: [RenderingNode],
+        selectAction: RenderingNode.ActionKind? = nil
+    ) {
+        self.id = id
+        self.content = content
+        self.selectAction = selectAction
+    }
+}
+
 /// A platform-neutral description of what a card or element will draw.
 ///
 /// `RenderingNode` is *not* a `View` — it's the intermediate representation
@@ -223,6 +244,19 @@ public indirect enum RenderingNode: Equatable, Sendable {
     /// screen-reader / keyboard navigation.
     case tabSet(tabs: [TabItem], selectedTabIndex: Int)
 
+    /// `Carousel` element. The renderer pre-resolves which page is
+    /// initially shown via `selectedPageIndex` (clamped against
+    /// `pages.count`); the View renders that page's content while
+    /// showing a page-position indicator. Live page switching is
+    /// parked alongside TabSet's; `autoAdvanceMs` carries the spec's
+    /// optional auto-rotate timer through so a future v2 can honour
+    /// it without an IR re-shape.
+    case carousel(
+        pages: [CarouselPageItem],
+        selectedPageIndex: Int,
+        autoAdvanceMs: Int?
+    )
+
     /// `CompoundButton` element. Renders as a button bearing a title
     /// + subtitle stack; firing the action goes through the standard
     /// `onAction` callback.
@@ -355,6 +389,9 @@ extension RenderingNode {
 
         case let (.tabSet(lt, ls), .tabSet(rt, rs)):
             return lt == rt && ls == rs
+
+        case let (.carousel(lp, ls, lt), .carousel(rp, rs, rt)):
+            return lp == rp && ls == rs && lt == rt
 
         case let (.compoundButton(lt, ls, li, la),
                   .compoundButton(rt, rs, ri, ra)):

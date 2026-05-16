@@ -11,7 +11,7 @@
     {
       "isSubtle" : true,
       "size" : "default",
-      "string" : "Exercises Chart, TabSet, and CompoundButton in one compact card so the IR-level a11y baseline picks up coverage of the three windows-port renderer additions.",
+      "string" : "Exercises Chart, TabSet, CompoundButton, and Carousel in one compact card so the IR-level a11y baseline picks up coverage of the four windows-port renderer additions.",
       "type" : "text",
       "weight" : "default",
       "wrap" : true
@@ -101,6 +101,76 @@
       "subtitle" : "Full analytics view",
       "title" : "Open Dashboard",
       "type" : "compoundButton"
+    },
+    {
+      "autoAdvanceMs" : 4000,
+      "pages" : [
+        {
+          "content" : [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Highlight 1: Onboarding",
+              "type" : "text",
+              "weight" : "bolder",
+              "wrap" : false
+            },
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Three-step setup, no install required.",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : true
+            }
+          ],
+          "id" : "TextBlock_TextBlock"
+        },
+        {
+          "content" : [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Highlight 2: Reports",
+              "type" : "text",
+              "weight" : "bolder",
+              "wrap" : false
+            },
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Auto-generated PDF reports delivered weekly.",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : true
+            }
+          ],
+          "id" : "TextBlock_TextBlock"
+        },
+        {
+          "content" : [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Highlight 3: Integrations",
+              "type" : "text",
+              "weight" : "bolder",
+              "wrap" : false
+            },
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Connect any data source via Power Platform.",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : true
+            }
+          ],
+          "id" : "TextBlock_TextBlock"
+        }
+      ],
+      "selectedPageIndex" : 1,
+      "type" : "carousel"
     }
   ],
   "spacing" : 8,

@@ -309,6 +309,37 @@ public enum A11yDump {
                 }
             }
 
+        case let .carousel(pages, selectedPageIndex, autoAdvanceMs):
+            // Same enumerate-all-but-walk-selected pattern as TabSet,
+            // with the auto-rotate timer surfaced as `autoAdvanceMs=N`
+            // (or `autoAdvanceMs=none`) so a11y reviewers can spot
+            // pages that change without user input — those need an
+            // off-switch per WCAG 2.2.2 "Pause, Stop, Hide". The Page
+            // line includes any wired `selectAction` so reviewers see
+            // whether the click target reads sensibly via screen
+            // reader, plus `NO_ACTION` when missing.
+            let timerTag = autoAdvanceMs.map { "autoAdvanceMs=\($0)" } ?? "autoAdvanceMs=none"
+            out.append(
+                "\(pad)Carousel selectedIndex=\(selectedPageIndex) count=\(pages.count) [\(timerTag)]"
+            )
+            for (idx, page) in pages.enumerated() {
+                let state = (idx == selectedPageIndex) ? "selected" : "unselected"
+                var attrs: [String] = ["index=\(idx)", state]
+                if let action = page.selectAction {
+                    attrs.append("action=\(actionKindTag(action))")
+                } else {
+                    attrs.append("NO_ACTION")
+                }
+                out.append(
+                    "\(pad)  Page id=\(page.id) [\(attrs.joined(separator: " "))]"
+                )
+                if idx == selectedPageIndex {
+                    for child in page.content {
+                        walk(child, indent: indent + 2, into: &out)
+                    }
+                }
+            }
+
         case let .compoundButton(title, subtitle, icon, action):
             // Compound buttons combine a title + subtitle + optional icon
             // into one focusable button; the accessible name should be

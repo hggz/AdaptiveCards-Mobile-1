@@ -51,6 +51,7 @@ extension RenderingNode: Codable {
         case timeField
         case chart
         case tabSet
+        case carousel
         case compoundButton
         case button
         case unsupported
@@ -74,6 +75,7 @@ extension RenderingNode: Codable {
         case typeString
         case data, showLegend
         case tabs, selectedTabIndex
+        case pages, selectedPageIndex, autoAdvanceMs, selectAction
         case subtitle, icon, action
     }
 
@@ -214,6 +216,20 @@ extension RenderingNode: Codable {
             self = .tabSet(
                 tabs: raw.map { TabItem(id: $0.id, title: $0.title, content: $0.content) },
                 selectedTabIndex: try c.decode(Int.self, forKey: .selectedTabIndex)
+            )
+        case .carousel:
+            struct Page: Codable {
+                let id: String
+                let content: [RenderingNode]
+                let selectAction: ActionKind?
+            }
+            let raw = try c.decode([Page].self, forKey: .pages)
+            self = .carousel(
+                pages: raw.map {
+                    CarouselPageItem(id: $0.id, content: $0.content, selectAction: $0.selectAction)
+                },
+                selectedPageIndex: try c.decode(Int.self, forKey: .selectedPageIndex),
+                autoAdvanceMs: try c.decodeIfPresent(Int.self, forKey: .autoAdvanceMs)
             )
         case .compoundButton:
             self = .compoundButton(
@@ -372,6 +388,20 @@ extension RenderingNode: Codable {
             try c.encode(Discriminator.tabSet, forKey: .type)
             try c.encode(tabs.map { Item(id: $0.id, title: $0.title, content: $0.content) }, forKey: .tabs)
             try c.encode(selectedTabIndex, forKey: .selectedTabIndex)
+
+        case let .carousel(pages, selectedPageIndex, autoAdvanceMs):
+            struct Page: Codable {
+                let id: String
+                let content: [RenderingNode]
+                let selectAction: ActionKind?
+            }
+            try c.encode(Discriminator.carousel, forKey: .type)
+            try c.encode(
+                pages.map { Page(id: $0.id, content: $0.content, selectAction: $0.selectAction) },
+                forKey: .pages
+            )
+            try c.encode(selectedPageIndex, forKey: .selectedPageIndex)
+            try c.encodeIfPresent(autoAdvanceMs, forKey: .autoAdvanceMs)
 
         case let .compoundButton(title, subtitle, icon, action):
             try c.encode(Discriminator.compoundButton, forKey: .type)

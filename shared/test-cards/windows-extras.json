@@ -11,7 +11,7 @@
     },
     {
       "type": "TextBlock",
-      "text": "Exercises Chart, TabSet, and CompoundButton in one compact card so the IR-level a11y baseline picks up coverage of the three windows-port renderer additions.",
+      "text": "Exercises Chart, TabSet, CompoundButton, and Carousel in one compact card so the IR-level a11y baseline picks up coverage of the four windows-port renderer additions.",
       "wrap": true,
       "isSubtle": true
     },
@@ -81,6 +81,56 @@
         "title": "Open",
         "url": "https://example.com/dashboard"
       }
+    },
+    {
+      "type": "Carousel",
+      "id": "highlightCarousel",
+      "initialPage": 1,
+      "timer": 4000,
+      "pages": [
+        {
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Highlight 1: Onboarding",
+              "weight": "Bolder"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Three-step setup, no install required.",
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Highlight 2: Reports",
+              "weight": "Bolder"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Auto-generated PDF reports delivered weekly.",
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Highlight 3: Integrations",
+              "weight": "Bolder"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Connect any data source via Power Platform.",
+              "wrap": true
+            }
+          ]
+        }
+      ]
     }
   ]
 }
