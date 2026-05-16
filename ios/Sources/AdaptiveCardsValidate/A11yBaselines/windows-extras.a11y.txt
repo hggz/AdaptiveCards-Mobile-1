@@ -3,9 +3,9 @@ VStack
   Text "Exercises Chart, TabSet, CompoundButton, Carousel, List, Media, and Input.Rating in one compact card so the IR-level a11y baseline picks up coverage of the seven windows-port renderer additions." [wrap subtle]
   Chart title="Sales by Region" [kind=donut legend]
     ChartData count=3
-      Datum label="Americas" [value=50.00]
-      Datum label="EMEA" [value=30.00]
-      Datum label="APAC" [value=20.00]
+      Datum label="Americas" [value=50.00 color=#0078D4]
+      Datum label="EMEA" [value=30.00 color=#107C10]
+      Datum label="APAC" [value=20.00 color=#FFB900]
   TabSet selectedIndex=0 count=2
     Tab id=trend title="Trend" [index=0 selected]
       Chart title="Weekly Visits" [kind=bar noLegend]

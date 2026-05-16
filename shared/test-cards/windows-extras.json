@@ -21,9 +21,9 @@
       "title": "Sales by Region",
       "showLegend": true,
       "data": [
-        { "label": "Americas", "value": 50 },
-        { "label": "EMEA", "value": 30 },
-        { "label": "APAC", "value": 20 }
+        { "label": "Americas", "value": 50, "color": "#0078D4" },
+        { "label": "EMEA", "value": 30, "color": "#107C10" },
+        { "label": "APAC", "value": 20, "color": "#FFB900" }
       ]
     },
     {

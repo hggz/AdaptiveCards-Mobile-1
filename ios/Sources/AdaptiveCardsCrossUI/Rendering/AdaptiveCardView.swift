@@ -489,17 +489,30 @@ struct AdaptiveNodeView: View {
 
         case let .chart(_, title, data, _):
             // swift-cross-ui has no native chart widget. Render an
-            // accessible, text-based summary: title (if any) + one row
-            // per datum showing the label, value, and a proportional
-            // bar built from filled / empty block characters. This is
-            // what screen readers will narrate anyway, and the visual
-            // is informative without needing canvas drawing.
+            // accessible, text-based summary: title (if any) + one
+            // row per datum showing the label, a proportional bar of
+            // filled / empty block characters, and the value. When
+            // a datum carries a `#RRGGBB` colour we apply it to the
+            // bar segment via `.foregroundColor`; screen readers
+            // still announce the same label + value, so colour is
+            // strictly an enhancement (the dump records the colour
+            // attribute regardless).
+            let peak = chartMax(data)
             VStack(alignment: .leading, spacing: 2) {
                 if let title, !title.isEmpty {
                     Text(title)
                 }
                 ForEach(Array(data.enumerated()), id: \.offset) { _, datum in
-                    Text(chartRow(label: datum.label, value: datum.value, max: chartMax(data)))
+                    HStack(spacing: 4) {
+                        Text("\(datum.label)  ")
+                        let bar = Text(chartBar(value: datum.value, max: peak))
+                        if let parsed = parseHexColor(datum.color) {
+                            bar.foregroundColor(parsed)
+                        } else {
+                            bar
+                        }
+                        Text("  \(chartValueString(datum.value))")
+                    }
                 }
             }
 
@@ -756,6 +769,61 @@ struct AdaptiveNodeView: View {
             ? String(format: "%.0f", value)
             : String(format: "%.2f", value)
         return "\(label)  \(bar)  \(formattedValue)"
+    }
+
+    /// Bar-only fragment of a chart row: 12 cells of `█` (filled)
+    /// followed by `░` (empty) sized by `|value| / max`. Pulled
+    /// out of `chartRow` so the bar can be a standalone `Text` that
+    /// carries its own `.foregroundColor`.
+    private func chartBar(value: Double, max: Double) -> String {
+        let width = 12
+        let ratio = max > 0 ? Swift.min(1.0, Swift.abs(value) / max) : 0
+        let filled = Int((Double(width) * ratio).rounded())
+        return String(repeating: "█", count: filled)
+             + String(repeating: "░", count: Swift.max(0, width - filled))
+    }
+
+    /// Stringify a chart value. Whole numbers render without decimals
+    /// ("42"); fractional values use two decimals ("3.14"). Matches
+    /// `chartRow`'s formatting so any code still using it stays
+    /// consistent.
+    private func chartValueString(_ value: Double) -> String {
+        return value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(format: "%.0f", value)
+            : String(format: "%.2f", value)
+    }
+
+    /// Parse a `#RRGGBB` or `#RRGGBBAA` hex string into a
+    /// swift-cross-ui `Color`. Returns `nil` for `nil` input, empty
+    /// strings, malformed hex, or any other unparseable shape so the
+    /// View can fall through to the default foreground colour. Case-
+    /// insensitive; leading `#` is optional. Three-digit shorthand
+    /// (`#RGB`) is intentionally NOT supported -- the AdaptiveCards
+    /// spec emits 6/8-digit hex and accepting shorthand would mask
+    /// authoring typos rather than help them.
+    private func parseHexColor(_ hex: String?) -> Color? {
+        guard var s = hex?.trimmingCharacters(in: .whitespaces), !s.isEmpty else {
+            return nil
+        }
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6 || s.count == 8,
+              let raw = UInt64(s, radix: 16) else {
+            return nil
+        }
+        let r, g, b: Double
+        var a: Double = 1
+        if s.count == 8 {
+            // #RRGGBBAA per AdaptiveCards spec (alpha last).
+            r = Double((raw >> 24) & 0xff) / 255
+            g = Double((raw >> 16) & 0xff) / 255
+            b = Double((raw >> 8) & 0xff) / 255
+            a = Double(raw & 0xff) / 255
+        } else {
+            r = Double((raw >> 16) & 0xff) / 255
+            g = Double((raw >> 8) & 0xff) / 255
+            b = Double(raw & 0xff) / 255
+        }
+        return Color(red: r, green: g, blue: b, opacity: a)
     }
 
     // MARK: - Carousel text indicators

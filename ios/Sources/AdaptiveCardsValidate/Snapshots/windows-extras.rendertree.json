@@ -19,14 +19,17 @@
     {
       "data" : [
         {
+          "color" : "#0078D4",
           "label" : "Americas",
           "value" : 50
         },
         {
+          "color" : "#107C10",
           "label" : "EMEA",
           "value" : 30
         },
         {
+          "color" : "#FFB900",
           "label" : "APAC",
           "value" : 20
         }
