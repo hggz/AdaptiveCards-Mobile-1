@@ -444,6 +444,64 @@ struct AdaptiveNodeView: View {
                 ) { Text("") }
             }
 
+        case let .chart(_, title, data, _):
+            // swift-cross-ui has no native chart widget. Render an
+            // accessible, text-based summary: title (if any) + one row
+            // per datum showing the label, value, and a proportional
+            // bar built from filled / empty block characters. This is
+            // what screen readers will narrate anyway, and the visual
+            // is informative without needing canvas drawing.
+            VStack(alignment: .leading, spacing: 2) {
+                if let title, !title.isEmpty {
+                    Text(title)
+                }
+                ForEach(Array(data.enumerated()), id: \.offset) { _, datum in
+                    Text(chartRow(label: datum.label, value: datum.value, max: chartMax(data)))
+                }
+            }
+
+        case let .tabSet(tabs, selectedTabIndex):
+            // Renders the tab strip as a horizontal stack of buttons
+            // (the selected one prefixed with `*`), followed by the
+            // currently-selected tab's content. Switching tabs at
+            // runtime via the button isn't wired in v1 — that would
+            // require lifting the selection to @State; the renderer
+            // emits a static initial selection.
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    ForEach(Array(tabs.enumerated()), id: \.offset) { idx, tab in
+                        Text((idx == selectedTabIndex ? "* " : "  ") + tab.title)
+                    }
+                }
+                Text(String(repeating: "─", count: 24))
+                if tabs.indices.contains(selectedTabIndex) {
+                    ForEach(Array(tabs[selectedTabIndex].content.enumerated()), id: \.offset) { _, child in
+                        AdaptiveNodeView(
+                            node: child,
+                            textValues: $textValues,
+                            toggleValues: $toggleValues,
+                            choiceValues: $choiceValues,
+                            dateValues: $dateValues,
+                            timeValues: $timeValues,
+                            onAction: onAction
+                        )
+                    }
+                }
+            }
+
+        case let .compoundButton(title, subtitle, _, action):
+            // Two-line button (title on top, subtitle below). Wires the
+            // attached action through the standard onAction callback so
+            // it joins the Submit/OpenUrl flow.
+            VStack(alignment: .leading, spacing: 2) {
+                Button(title) {
+                    if let action { onAction?(action) }
+                }
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                }
+            }
+
         case let .button(title, kind):
             Button(title) {
                 onAction?(kind)
@@ -565,6 +623,32 @@ struct AdaptiveNodeView: View {
         case .large: return (160, 160)
         case .stretch: return (nil, nil)
         }
+    }
+
+    // MARK: - Chart text rendering
+
+    /// Largest absolute value across the chart's data, used to scale
+    /// every bar to a fixed-width column. Returns `1` for empty or
+    /// all-zero data so the divisor is always safe.
+    private func chartMax(_ data: [ChartDatum]) -> Double {
+        let peak = data.map { Swift.abs($0.value) }.max() ?? 0
+        return peak > 0 ? peak : 1
+    }
+
+    /// Format a single chart datum as a line of text:
+    /// `label  ████████░░░░  value`. The bar width is fixed at 12
+    /// cells so columns line up even in a proportional font when
+    /// rendered via swift-cross-ui's `Text`.
+    private func chartRow(label: String, value: Double, max: Double) -> String {
+        let width = 12
+        let ratio = max > 0 ? Swift.min(1.0, Swift.abs(value) / max) : 0
+        let filled = Int((Double(width) * ratio).rounded())
+        let bar = String(repeating: "█", count: filled)
+                + String(repeating: "░", count: Swift.max(0, width - filled))
+        let formattedValue = value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(format: "%.0f", value)
+            : String(format: "%.2f", value)
+        return "\(label)  \(bar)  \(formattedValue)"
     }
 }
 #endif

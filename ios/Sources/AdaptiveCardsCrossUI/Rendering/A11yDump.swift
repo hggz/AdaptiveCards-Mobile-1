@@ -265,21 +265,70 @@ public enum A11yDump {
                 out.append("\(pad)  value=\(quote(value))")
             }
 
-        case let .button(title, kind):
-            let kindTag: String = {
-                switch kind {
-                case .submit: return "submit"
-                case .openUrl: return "openUrl"
-                case .showCard: return "showCard"
-                case .execute: return "execute"
-                case .toggleVisibility: return "toggleVisibility"
-                case .popover: return "popover"
-                case .runCommands: return "runCommands"
-                case .openUrlDialog: return "openUrlDialog"
-                case .unknown: return "unknown"
+        case let .chart(kind, title, data, showLegend):
+            // Charts are a known screen-reader weak point: pixel-only
+            // visualizations carry no semantic data. Enumerating every
+            // (label, value) pair under a `ChartData` group gives
+            // assistive tech a verbatim, navigable reading of the same
+            // information the sighted user sees. The dump also flags
+            // charts without a title since that's the only programmatic
+            // name the chart group will expose.
+            var attrs: [String] = ["kind=\(kind.rawValue)"]
+            attrs.append(showLegend ? "legend" : "noLegend")
+            if title == nil || (title ?? "").isEmpty { attrs.append("MISSING_TITLE") }
+            var header = "\(pad)Chart"
+            if let title = title, !title.isEmpty { header += " title=\(quote(title))" }
+            header += " [" + attrs.joined(separator: " ") + "]"
+            out.append(header)
+            out.append("\(pad)  ChartData count=\(data.count)")
+            for datum in data {
+                var datumAttrs: [String] = [String(format: "value=%.2f", datum.value)]
+                if let color = datum.color, !color.isEmpty {
+                    datumAttrs.append("color=\(color)")
                 }
-            }()
-            out.append("\(pad)Button name=\(quote(title)) [kind=\(kindTag)]")
+                out.append(
+                    "\(pad)    Datum label=\(quote(datum.label)) [\(datumAttrs.joined(separator: " "))]"
+                )
+            }
+
+        case let .tabSet(tabs, selectedTabIndex):
+            // Every tab is enumerated so screen-reader users can perceive
+            // the full tab strip; the selected one is annotated. Body
+            // content is walked only for the selected tab to mirror what
+            // the View layer actually renders.
+            out.append("\(pad)TabSet selectedIndex=\(selectedTabIndex) count=\(tabs.count)")
+            for (idx, tab) in tabs.enumerated() {
+                let state = (idx == selectedTabIndex) ? "selected" : "unselected"
+                out.append(
+                    "\(pad)  Tab id=\(tab.id) title=\(quote(tab.title)) [index=\(idx) \(state)]"
+                )
+                if idx == selectedTabIndex {
+                    for child in tab.content {
+                        walk(child, indent: indent + 2, into: &out)
+                    }
+                }
+            }
+
+        case let .compoundButton(title, subtitle, icon, action):
+            // Compound buttons combine a title + subtitle + optional icon
+            // into one focusable button; the accessible name should be
+            // the title alone (screen readers concatenate subtitle as a
+            // hint when reading). We attach the wired action's kind
+            // so the dump explains what the button does.
+            var attrs: [String] = []
+            if let action = action {
+                attrs.append("action=\(actionKindTag(action))")
+            } else {
+                attrs.append("NO_ACTION")
+            }
+            if let icon = icon, !icon.isEmpty { attrs.append("icon=\(icon)") }
+            out.append("\(pad)CompoundButton name=\(quote(title)) [\(attrs.joined(separator: " "))]")
+            if let subtitle = subtitle, !subtitle.isEmpty {
+                out.append("\(pad)  subtitle=\(quote(subtitle))")
+            }
+
+        case let .button(title, kind):
+            out.append("\(pad)Button name=\(quote(title)) [kind=\(actionKindTag(kind))]")
 
         case let .unsupported(typeString):
             // Surfaces missing renderer coverage as a flag so reviewers
@@ -308,5 +357,23 @@ public enum A11yDump {
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         return "\"\(escaped)\""
+    }
+
+    /// Stable, lowercase token for an `ActionKind`, used by both
+    /// `.button` and `.compoundButton` dump rows so a11y reviewers see
+    /// identical labels regardless of which button shape carries the
+    /// action.
+    private static func actionKindTag(_ kind: RenderingNode.ActionKind) -> String {
+        switch kind {
+        case .submit: return "submit"
+        case .openUrl: return "openUrl"
+        case .showCard: return "showCard"
+        case .execute: return "execute"
+        case .toggleVisibility: return "toggleVisibility"
+        case .popover: return "popover"
+        case .runCommands: return "runCommands"
+        case .openUrlDialog: return "openUrlDialog"
+        case .unknown: return "unknown"
+        }
     }
 }

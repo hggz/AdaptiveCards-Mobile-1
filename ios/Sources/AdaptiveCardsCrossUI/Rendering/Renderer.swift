@@ -233,13 +233,78 @@ public struct Renderer {
                 isRequired: ti.isRequired ?? false
             )
 
+        // Chart elements share data shape; one IR case handles all four.
+        case .donutChart(let c):
+            return .chart(
+                kind: .donut,
+                title: c.title,
+                data: c.data.map { ChartDatum(label: $0.label, value: $0.value, color: $0.color) },
+                showLegend: c.showLegend ?? true
+            )
+        case .barChart(let c):
+            return .chart(
+                kind: .bar,
+                title: c.title,
+                data: c.data.map { ChartDatum(label: $0.label, value: $0.value, color: $0.color) },
+                showLegend: c.showLegend ?? true
+            )
+        case .lineChart(let c):
+            return .chart(
+                kind: .line,
+                title: c.title,
+                data: c.data.map { ChartDatum(label: $0.label, value: $0.value, color: $0.color) },
+                showLegend: c.showLegend ?? true
+            )
+        case .pieChart(let c):
+            return .chart(
+                kind: .pie,
+                title: c.title,
+                data: c.data.map { ChartDatum(label: $0.label, value: $0.value, color: $0.color) },
+                showLegend: c.showLegend ?? true
+            )
+
+        case .tabSet(let ts):
+            // Resolve the initially-selected tab by id; default to the
+            // first tab when no selection is given or the id doesn't
+            // match (defensive — the spec doesn't require selectedTabId
+            // to reference an existing tab).
+            let selectedIndex: Int = {
+                guard let selId = ts.selectedTabId,
+                      let i = ts.tabs.firstIndex(where: { $0.id == selId }) else {
+                    return 0
+                }
+                return i
+            }()
+            let items: [TabItem] = ts.tabs.map { tab in
+                TabItem(
+                    id: tab.id,
+                    title: tab.title,
+                    content: tab.items.filter(\.isVisible).map { render(element: $0) }
+                )
+            }
+            return .tabSet(tabs: items, selectedTabIndex: selectedIndex)
+
+        case .compoundButton(let cb):
+            let kind: RenderingNode.ActionKind? = {
+                guard let action = cb.action else { return nil }
+                if case let .button(_, k) = render(action: action) {
+                    return k
+                }
+                return nil
+            }()
+            return .compoundButton(
+                title: cb.title,
+                subtitle: cb.subtitle,
+                icon: cb.icon,
+                action: kind
+            )
+
         // Everything else: deliberate placeholder so the demo visually shows
         // what's still missing rather than silently dropping content.
         case .media,
              .carousel,
              .ratingInput,
-             .tabSet, .list, .compoundButton,
-             .donutChart, .barChart, .lineChart, .pieChart,
+             .list,
              .unknown:
             return .unsupported(typeString: element.typeString)
         }

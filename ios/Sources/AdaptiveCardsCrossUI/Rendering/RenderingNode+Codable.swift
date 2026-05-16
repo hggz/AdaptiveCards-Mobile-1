@@ -49,6 +49,9 @@ extension RenderingNode: Codable {
         case rating
         case dateField
         case timeField
+        case chart
+        case tabSet
+        case compoundButton
         case button
         case unsupported
     }
@@ -69,6 +72,9 @@ extension RenderingNode: Codable {
         case max, count
         case kind
         case typeString
+        case data, showLegend
+        case tabs, selectedTabIndex
+        case subtitle, icon, action
     }
 
     public init(from decoder: Decoder) throws {
@@ -190,6 +196,31 @@ extension RenderingNode: Codable {
                 placeholder: try c.decodeIfPresent(String.self, forKey: .placeholder),
                 value: try c.decodeIfPresent(String.self, forKey: .value),
                 isRequired: try c.decode(Bool.self, forKey: .isRequired)
+            )
+        case .chart:
+            self = .chart(
+                kind: try c.decode(ChartKind.self, forKey: .kind),
+                title: try c.decodeIfPresent(String.self, forKey: .title),
+                data: try c.decode([ChartDatum].self, forKey: .data),
+                showLegend: try c.decode(Bool.self, forKey: .showLegend)
+            )
+        case .tabSet:
+            struct Item: Codable {
+                let id: String
+                let title: String
+                let content: [RenderingNode]
+            }
+            let raw = try c.decode([Item].self, forKey: .tabs)
+            self = .tabSet(
+                tabs: raw.map { TabItem(id: $0.id, title: $0.title, content: $0.content) },
+                selectedTabIndex: try c.decode(Int.self, forKey: .selectedTabIndex)
+            )
+        case .compoundButton:
+            self = .compoundButton(
+                title: try c.decode(String.self, forKey: .title),
+                subtitle: try c.decodeIfPresent(String.self, forKey: .subtitle),
+                icon: try c.decodeIfPresent(String.self, forKey: .icon),
+                action: try c.decodeIfPresent(ActionKind.self, forKey: .action)
             )
         case .button:
             self = .button(
@@ -324,6 +355,30 @@ extension RenderingNode: Codable {
             try c.encodeIfPresent(placeholder, forKey: .placeholder)
             try c.encodeIfPresent(value, forKey: .value)
             try c.encode(isRequired, forKey: .isRequired)
+
+        case let .chart(kind, title, data, showLegend):
+            try c.encode(Discriminator.chart, forKey: .type)
+            try c.encode(kind, forKey: .kind)
+            try c.encodeIfPresent(title, forKey: .title)
+            try c.encode(data, forKey: .data)
+            try c.encode(showLegend, forKey: .showLegend)
+
+        case let .tabSet(tabs, selectedTabIndex):
+            struct Item: Codable {
+                let id: String
+                let title: String
+                let content: [RenderingNode]
+            }
+            try c.encode(Discriminator.tabSet, forKey: .type)
+            try c.encode(tabs.map { Item(id: $0.id, title: $0.title, content: $0.content) }, forKey: .tabs)
+            try c.encode(selectedTabIndex, forKey: .selectedTabIndex)
+
+        case let .compoundButton(title, subtitle, icon, action):
+            try c.encode(Discriminator.compoundButton, forKey: .type)
+            try c.encode(title, forKey: .title)
+            try c.encodeIfPresent(subtitle, forKey: .subtitle)
+            try c.encodeIfPresent(icon, forKey: .icon)
+            try c.encodeIfPresent(action, forKey: .action)
 
         case let .button(title, kind):
             try c.encode(Discriminator.button, forKey: .type)

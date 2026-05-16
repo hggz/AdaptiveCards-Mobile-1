@@ -47,6 +47,42 @@ public struct AccordionPanel: Equatable, Sendable {
     }
 }
 
+/// A single (label, value) pair for any chart kind. Optional color is
+/// the spec's `#RRGGBB` token; the View layer may ignore it.
+public struct ChartDatum: Equatable, Sendable, Codable {
+    public var label: String
+    public var value: Double
+    public var color: String?
+
+    public init(label: String, value: Double, color: String? = nil) {
+        self.label = label
+        self.value = value
+        self.color = color
+    }
+}
+
+/// Which chart visualization to apply to the data.
+public enum ChartKind: String, Equatable, Sendable, Codable {
+    case donut
+    case bar
+    case line
+    case pie
+}
+
+/// One tab in a `TabSet`. Body is rendered when this tab is the
+/// selected one; the a11y dump enumerates every tab regardless.
+public struct TabItem: Equatable, Sendable {
+    public var id: String
+    public var title: String
+    public var content: [RenderingNode]
+
+    public init(id: String, title: String, content: [RenderingNode]) {
+        self.id = id
+        self.title = title
+        self.content = content
+    }
+}
+
 /// A platform-neutral description of what a card or element will draw.
 ///
 /// `RenderingNode` is *not* a `View` — it's the intermediate representation
@@ -170,6 +206,33 @@ public indirect enum RenderingNode: Equatable, Sendable {
         isRequired: Bool
     )
 
+    /// Chart element. The same IR represents every chart kind
+    /// (`Donut`, `Bar`, `Line`, `Pie`); the View layer picks a
+    /// visualization per `kind`. The IR keeps the raw data so a11y
+    /// dumps can describe label/value pairs verbatim.
+    case chart(
+        kind: ChartKind,
+        title: String?,
+        data: [ChartDatum],
+        showLegend: Bool
+    )
+
+    /// `TabSet` element. The renderer pre-resolves which tab is
+    /// initially selected via `selectedTabIndex`; the View renders
+    /// that tab's content while showing the full tab strip for
+    /// screen-reader / keyboard navigation.
+    case tabSet(tabs: [TabItem], selectedTabIndex: Int)
+
+    /// `CompoundButton` element. Renders as a button bearing a title
+    /// + subtitle stack; firing the action goes through the standard
+    /// `onAction` callback.
+    case compoundButton(
+        title: String,
+        subtitle: String?,
+        icon: String?,
+        action: ActionKind?
+    )
+
     /// Button row (action set or card-level actions).
     case button(title: String, kind: ActionKind)
 
@@ -286,6 +349,16 @@ extension RenderingNode {
         case let (.timeField(li, ll, lp, lv, lr),
                   .timeField(ri, rl, rp, rv, rr)):
             return li == ri && ll == rl && lp == rp && lv == rv && lr == rr
+
+        case let (.chart(lk, lt, ld, lleg), .chart(rk, rt, rd, rleg)):
+            return lk == rk && lt == rt && ld == rd && lleg == rleg
+
+        case let (.tabSet(lt, ls), .tabSet(rt, rs)):
+            return lt == rt && ls == rs
+
+        case let (.compoundButton(lt, ls, li, la),
+                  .compoundButton(rt, rs, ri, ra)):
+            return lt == rt && ls == rs && li == ri && la == ra
 
         case let (.button(lt, lk), .button(rt, rk)):
             return lt == rt && lk == rk
