@@ -11,6 +11,12 @@ name: windows-port-ci
 #                             bump didn't break the existing renderer).
 #   linux-build            -- AdaptiveCardsCrossUI compiles on Linux,
 #                             proving the cross-UI swap is portable.
+#                             ALSO runs `swift run AdaptiveCardsValidate`
+#                             so IR snapshot + a11y baseline drift is
+#                             caught on Linux too (same harness the
+#                             Windows runner uses; no UI backend
+#                             needed so it works under the swift.org
+#                             container).
 #   windows-build          -- All four windows-port targets build +
 #                             AdaptiveCardsValidate.exe headless harness
 #                             passes its 90 checks (renderer unit,
@@ -108,6 +114,19 @@ jobs:
           swift build --target AdaptiveCardsCrossUI
           swift build --target AdaptiveCardsWindowsEmbedded
           swift build --target AdaptiveCardsCABI
+
+      - name: Headless validator (IR snapshot + a11y baselines)
+        # Phase 25: runs the same `AdaptiveCardsValidate` harness that
+        # `windows-build` runs, but on Linux. The validator does NOT
+        # touch swift-cross-ui's UI backends (no GTK / WinUI), so it
+        # builds and runs on any swift.org container. This catches IR
+        # snapshot drift and a11y baseline drift caused by an
+        # iOS / macOS-only change before the Windows runner gets to it,
+        # giving every PR a same-day cross-platform signal on the IR
+        # surface.
+        working-directory: ios
+        run: |
+          swift run AdaptiveCardsValidate
 
   windows-build:
     name: Windows / build + AdaptiveCardsValidate (REQUIRED)
