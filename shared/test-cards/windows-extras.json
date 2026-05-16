@@ -1,0 +1,86 @@
+{
+  "type": "AdaptiveCard",
+  "version": "1.6",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Windows Extras",
+      "size": "Large",
+      "weight": "Bolder"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Exercises Chart, TabSet, and CompoundButton in one compact card so the IR-level a11y baseline picks up coverage of the three windows-port renderer additions.",
+      "wrap": true,
+      "isSubtle": true
+    },
+    {
+      "type": "DonutChart",
+      "id": "salesChart",
+      "title": "Sales by Region",
+      "showLegend": true,
+      "data": [
+        { "label": "Americas", "value": 50 },
+        { "label": "EMEA", "value": 30 },
+        { "label": "APAC", "value": 20 }
+      ]
+    },
+    {
+      "type": "TabSet",
+      "id": "detailsTabs",
+      "selectedTabId": "trend",
+      "tabs": [
+        {
+          "id": "trend",
+          "title": "Trend",
+          "items": [
+            {
+              "type": "BarChart",
+              "id": "weeklyBar",
+              "title": "Weekly Visits",
+              "showLegend": false,
+              "data": [
+                { "label": "Mon", "value": 12 },
+                { "label": "Tue", "value": 18 },
+                { "label": "Wed", "value": 24 },
+                { "label": "Thu", "value": 21 },
+                { "label": "Fri", "value": 30 }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "actions",
+          "title": "Actions",
+          "items": [
+            {
+              "type": "CompoundButton",
+              "id": "reportBtn",
+              "title": "Generate Report",
+              "subtitle": "PDF, last 30 days",
+              "icon": "doc.fill",
+              "action": {
+                "type": "Action.Submit",
+                "title": "Generate",
+                "data": { "report": "monthly" }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CompoundButton",
+      "id": "openDashBtn",
+      "title": "Open Dashboard",
+      "subtitle": "Full analytics view",
+      "icon": "chart.bar.fill",
+      "action": {
+        "type": "Action.OpenUrl",
+        "title": "Open",
+        "url": "https://example.com/dashboard"
+      }
+    }
+  ]
+}

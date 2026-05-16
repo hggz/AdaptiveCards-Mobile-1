@@ -1,0 +1,20 @@
+VStack
+  Heading "Windows Extras" [size=large weight=bolder]
+  Text "Exercises Chart, TabSet, and CompoundButton in one compact card so the IR-level a11y baseline picks up coverage of the three windows-port renderer additions." [wrap subtle]
+  Chart title="Sales by Region" [kind=donut legend]
+    ChartData count=3
+      Datum label="Americas" [value=50.00]
+      Datum label="EMEA" [value=30.00]
+      Datum label="APAC" [value=20.00]
+  TabSet selectedIndex=0 count=2
+    Tab id=trend title="Trend" [index=0 selected]
+      Chart title="Weekly Visits" [kind=bar noLegend]
+        ChartData count=5
+          Datum label="Mon" [value=12.00]
+          Datum label="Tue" [value=18.00]
+          Datum label="Wed" [value=24.00]
+          Datum label="Thu" [value=21.00]
+          Datum label="Fri" [value=30.00]
+    Tab id=actions title="Actions" [index=1 unselected]
+  CompoundButton name="Open Dashboard" [action=openUrl icon=chart.bar.fill]
+    subtitle="Full analytics view"

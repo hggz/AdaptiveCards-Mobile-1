@@ -1,0 +1,108 @@
+{
+  "children" : [
+    {
+      "isSubtle" : false,
+      "size" : "large",
+      "string" : "Windows Extras",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "isSubtle" : true,
+      "size" : "default",
+      "string" : "Exercises Chart, TabSet, and CompoundButton in one compact card so the IR-level a11y baseline picks up coverage of the three windows-port renderer additions.",
+      "type" : "text",
+      "weight" : "default",
+      "wrap" : true
+    },
+    {
+      "data" : [
+        {
+          "label" : "Americas",
+          "value" : 50
+        },
+        {
+          "label" : "EMEA",
+          "value" : 30
+        },
+        {
+          "label" : "APAC",
+          "value" : 20
+        }
+      ],
+      "kind" : "donut",
+      "showLegend" : true,
+      "title" : "Sales by Region",
+      "type" : "chart"
+    },
+    {
+      "selectedTabIndex" : 0,
+      "tabs" : [
+        {
+          "content" : [
+            {
+              "data" : [
+                {
+                  "label" : "Mon",
+                  "value" : 12
+                },
+                {
+                  "label" : "Tue",
+                  "value" : 18
+                },
+                {
+                  "label" : "Wed",
+                  "value" : 24
+                },
+                {
+                  "label" : "Thu",
+                  "value" : 21
+                },
+                {
+                  "label" : "Fri",
+                  "value" : 30
+                }
+              ],
+              "kind" : "bar",
+              "showLegend" : false,
+              "title" : "Weekly Visits",
+              "type" : "chart"
+            }
+          ],
+          "id" : "trend",
+          "title" : "Trend"
+        },
+        {
+          "content" : [
+            {
+              "action" : {
+                "payload" : "{\"report\":\"monthly\"}",
+                "type" : "submit"
+              },
+              "icon" : "doc.fill",
+              "subtitle" : "PDF, last 30 days",
+              "title" : "Generate Report",
+              "type" : "compoundButton"
+            }
+          ],
+          "id" : "actions",
+          "title" : "Actions"
+        }
+      ],
+      "type" : "tabSet"
+    },
+    {
+      "action" : {
+        "payload" : "https:\/\/example.com\/dashboard",
+        "type" : "openUrl"
+      },
+      "icon" : "chart.bar.fill",
+      "subtitle" : "Full analytics view",
+      "title" : "Open Dashboard",
+      "type" : "compoundButton"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

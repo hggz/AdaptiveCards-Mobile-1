@@ -57,6 +57,11 @@ public enum SampleCardLibrary {
         "table.json",
         "rating.json",
         "edge-empty-card.json",
+        // Phase 17: covers Chart (donut + bar), TabSet (multi-tab with
+        // mixed body content), and CompoundButton (Submit + OpenUrl) so
+        // the snapshot + a11y baselines exercise the Phase 16 renderer
+        // additions.
+        "windows-extras.json",
     ]
 
     public struct LoadError: Error, LocalizedError {

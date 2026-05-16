@@ -2,7 +2,7 @@
 //  A11yBaselines.swift
 //  AdaptiveCardsValidate — windows-port
 //
-//  Walks the same 7 reference cards `Snapshots` does, but emits an
+//  Walks the same reference cards `Snapshots` does, but emits an
 //  IR-level a11y dump per card (via `A11yDump`) and diffs against a
 //  committed baseline under
 //  `Sources/AdaptiveCardsValidate/A11yBaselines/<card>.a11y.txt`.
