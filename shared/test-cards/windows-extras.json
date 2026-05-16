@@ -11,7 +11,7 @@
     },
     {
       "type": "TextBlock",
-      "text": "Exercises Chart, TabSet, CompoundButton, Carousel, and List in one compact card so the IR-level a11y baseline picks up coverage of the five windows-port renderer additions.",
+      "text": "Exercises Chart, TabSet, CompoundButton, Carousel, List, and Media in one compact card so the IR-level a11y baseline picks up coverage of the six windows-port renderer additions.",
       "wrap": true,
       "isSubtle": true
     },
@@ -100,6 +100,16 @@
         { "type": "TextBlock", "text": "Add IR case" },
         { "type": "TextBlock", "text": "Add Codable round-trip" },
         { "type": "TextBlock", "text": "Add reference card + baselines" }
+      ]
+    },
+    {
+      "type": "Media",
+      "id": "introVideo",
+      "altText": "Short intro video walking through the windows-port renderer.",
+      "poster": "https://adaptivecards.io/content/poster-video.png",
+      "sources": [
+        { "mimeType": "video/mp4", "url": "https://example.com/intro.mp4" },
+        { "mimeType": "video/webm", "url": "https://example.com/intro.webm" }
       ]
     },
     {

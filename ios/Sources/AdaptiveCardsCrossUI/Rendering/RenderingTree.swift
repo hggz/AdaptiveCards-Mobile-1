@@ -78,6 +78,20 @@ public enum ListStyle: String, Equatable, Sendable, Codable {
     case numbered
 }
 
+/// One audio / video source for a `Media` element. Mirrors ACCore's
+/// `Media.MediaSource`; kept as a sibling struct so the IR doesn't
+/// reach into the parser type and can be Sendable across actor
+/// boundaries.
+public struct MediaSource: Equatable, Sendable, Codable {
+    public var mimeType: String
+    public var url: String
+
+    public init(mimeType: String, url: String) {
+        self.mimeType = mimeType
+        self.url = url
+    }
+}
+
 /// One tab in a `TabSet`. Body is rendered when this tab is the
 /// selected one; the a11y dump enumerates every tab regardless.
 public struct TabItem: Equatable, Sendable {
@@ -274,6 +288,17 @@ public indirect enum RenderingNode: Equatable, Sendable {
     /// top of the IR.
     case list(style: ListStyle, items: [RenderingNode])
 
+    /// `Media` element. swift-cross-ui has no native audio / video
+    /// widget, so the View renders a textual summary (poster image +
+    /// alt-text caption + per-source mime/url rows). The a11y dump
+    /// flags missing `altText` as a WCAG 1.2.1 / 1.2.2 violation
+    /// (pre-recorded media requires an alternative).
+    case media(
+        sources: [MediaSource],
+        posterURL: String?,
+        altText: String?
+    )
+
     /// `CompoundButton` element. Renders as a button bearing a title
     /// + subtitle stack; firing the action goes through the standard
     /// `onAction` callback.
@@ -412,6 +437,9 @@ extension RenderingNode {
 
         case let (.list(ls, li), .list(rs, ri)):
             return ls == rs && li == ri
+
+        case let (.media(ls, lp, la), .media(rs, rp, ra)):
+            return ls == rs && lp == rp && la == ra
 
         case let (.compoundButton(lt, ls, li, la),
                   .compoundButton(rt, rs, ri, ra)):

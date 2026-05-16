@@ -53,6 +53,7 @@ extension RenderingNode: Codable {
         case tabSet
         case carousel
         case list
+        case media
         case compoundButton
         case button
         case unsupported
@@ -78,6 +79,7 @@ extension RenderingNode: Codable {
         case tabs, selectedTabIndex
         case pages, selectedPageIndex, autoAdvanceMs, selectAction
         case style, items
+        case sources, posterURL, altText
         case subtitle, icon, action
     }
 
@@ -237,6 +239,12 @@ extension RenderingNode: Codable {
             self = .list(
                 style: try c.decode(ListStyle.self, forKey: .style),
                 items: try c.decode([RenderingNode].self, forKey: .items)
+            )
+        case .media:
+            self = .media(
+                sources: try c.decode([MediaSource].self, forKey: .sources),
+                posterURL: try c.decodeIfPresent(String.self, forKey: .posterURL),
+                altText: try c.decodeIfPresent(String.self, forKey: .altText)
             )
         case .compoundButton:
             self = .compoundButton(
@@ -414,6 +422,12 @@ extension RenderingNode: Codable {
             try c.encode(Discriminator.list, forKey: .type)
             try c.encode(style, forKey: .style)
             try c.encode(items, forKey: .items)
+
+        case let .media(sources, posterURL, altText):
+            try c.encode(Discriminator.media, forKey: .type)
+            try c.encode(sources, forKey: .sources)
+            try c.encodeIfPresent(posterURL, forKey: .posterURL)
+            try c.encodeIfPresent(altText, forKey: .altText)
 
         case let .compoundButton(title, subtitle, icon, action):
             try c.encode(Discriminator.compoundButton, forKey: .type)

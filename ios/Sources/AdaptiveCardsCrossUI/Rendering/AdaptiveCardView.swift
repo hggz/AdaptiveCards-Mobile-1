@@ -559,6 +559,31 @@ struct AdaptiveNodeView: View {
                 }
             }
 
+        case let .media(sources, posterURL, altText):
+            // swift-cross-ui has no audio / video widget, so render a
+            // textual summary: poster image (if URL parses), the
+            // altText caption (or a placeholder when missing), and one
+            // line per source listing its mimeType + URL. This is
+            // exactly what assistive tech would narrate, and a sighted
+            // user gets enough information to copy the URL into a
+            // separate player or follow the link.
+            VStack(alignment: .leading, spacing: 4) {
+                if let posterURL,
+                   let posterParsed = URL(string: posterURL),
+                   !posterURL.isEmpty {
+                    SwiftCrossUI.Image(posterParsed)
+                        .resizable()
+                        .frame(width: 160, height: 90)
+                }
+                Text("[Media] " + (altText ?? "(no alt text)"))
+                ForEach(Array(sources.enumerated()), id: \.offset) { _, source in
+                    Text("  \(source.mimeType): \(source.url)")
+                }
+                if sources.isEmpty {
+                    Text("  (no sources)")
+                }
+            }
+
         case let .compoundButton(title, subtitle, _, action):
             // Two-line button (title on top, subtitle below). Wires the
             // attached action through the standard onAction callback so

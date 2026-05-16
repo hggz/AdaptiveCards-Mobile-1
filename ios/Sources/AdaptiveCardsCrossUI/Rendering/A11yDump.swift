@@ -351,6 +351,31 @@ public enum A11yDump {
                 walk(item, indent: indent + 1, into: &out)
             }
 
+        case let .media(sources, posterURL, altText):
+            // Pre-recorded media (audio / video) requires an
+            // alternative for non-hearing / non-sighted users per WCAG
+            // 1.2.1 (Audio-only / Video-only Prerecorded) and 1.2.2
+            // (Captions). The dump treats missing altText as a
+            // MISSING_ALT violation, identical to how `Image` does it.
+            // Sources are enumerated by mimeType so reviewers can see
+            // whether a captioned variant is present alongside the raw
+            // audio/video.
+            var attrs: [String] = ["sources=\(sources.count)"]
+            if posterURL != nil { attrs.append("hasPoster") }
+            let nameForLine: String
+            if let altText = altText, !altText.isEmpty {
+                nameForLine = quote(altText)
+            } else {
+                attrs.insert("MISSING_ALT", at: 0)
+                nameForLine = quote("(no alt text)")
+            }
+            out.append("\(pad)Media name=\(nameForLine) [\(attrs.joined(separator: " "))]")
+            for source in sources {
+                out.append(
+                    "\(pad)  Source mimeType=\(source.mimeType) url=\(quote(source.url))"
+                )
+            }
+
         case let .compoundButton(title, subtitle, icon, action):
             // Compound buttons combine a title + subtitle + optional icon
             // into one focusable button; the accessible name should be

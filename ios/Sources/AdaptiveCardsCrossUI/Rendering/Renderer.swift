@@ -340,10 +340,24 @@ public struct Renderer {
                 items: l.items.filter(\.isVisible).map { render(element: $0) }
             )
 
+        case .media(let m):
+            // swift-cross-ui has no native audio / video widget, so
+            // the View renders a textual summary. Pass the raw spec
+            // fields through verbatim (sources / poster / altText) so
+            // a future v2 with native playback can swap the View case
+            // without changing the IR.
+            let irSources = m.sources.map {
+                MediaSource(mimeType: $0.mimeType, url: $0.url)
+            }
+            return .media(
+                sources: irSources,
+                posterURL: m.poster,
+                altText: m.altText
+            )
+
         // Everything else: deliberate placeholder so the demo visually shows
         // what's still missing rather than silently dropping content.
-        case .media,
-             .ratingInput,
+        case .ratingInput,
              .unknown:
             return .unsupported(typeString: element.typeString)
         }

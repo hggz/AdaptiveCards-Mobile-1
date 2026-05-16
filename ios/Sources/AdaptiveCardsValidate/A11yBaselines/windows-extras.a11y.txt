@@ -1,6 +1,6 @@
 VStack
   Heading "Windows Extras" [size=large weight=bolder]
-  Text "Exercises Chart, TabSet, CompoundButton, Carousel, and List in one compact card so the IR-level a11y baseline picks up coverage of the five windows-port renderer additions." [wrap subtle]
+  Text "Exercises Chart, TabSet, CompoundButton, Carousel, List, and Media in one compact card so the IR-level a11y baseline picks up coverage of the six windows-port renderer additions." [wrap subtle]
   Chart title="Sales by Region" [kind=donut legend]
     ChartData count=3
       Datum label="Americas" [value=50.00]
@@ -26,6 +26,9 @@ VStack
     Text "Add IR case"
     Text "Add Codable round-trip"
     Text "Add reference card + baselines"
+  Media name="Short intro video walking through the windows-port renderer." [sources=2 hasPoster]
+    Source mimeType=video/mp4 url="https://example.com/intro.mp4"
+    Source mimeType=video/webm url="https://example.com/intro.webm"
   Carousel selectedIndex=1 count=3 [autoAdvanceMs=4000]
     Page id=TextBlock_TextBlock [index=0 unselected NO_ACTION]
     Page id=TextBlock_TextBlock [index=1 selected NO_ACTION]
