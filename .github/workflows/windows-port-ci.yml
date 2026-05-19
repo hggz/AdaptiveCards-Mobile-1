@@ -604,7 +604,7 @@ jobs:
             Write-Host "::error::Pixel diff failed for: $($driftedSamples -join ', '). Download the windows-render-smoke artifact and update baselines under Sources/AdaptiveCardsValidate/Screenshots/ if the drift is intentional."
             exit 1
           }
-          Write-Host "All 7 captures within 2% pixel-drift tolerance of committed baselines."
+          Write-Host "All 8 captures within 2% pixel-drift tolerance of committed baselines."
 
       - name: Upload screenshots + stdout/err
         if: always()
