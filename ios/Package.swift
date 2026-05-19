@@ -137,6 +137,19 @@ let package = Package(
                 "AdaptiveCardsRenderingIR",
                 .product(name: "JavaScriptKit", package: "JavaScriptKit"),
             ]),
+        // wasm-port: standalone demo executable. Compiled for the Swift
+        // WASM SDK, the resulting `.wasm` is loaded by the W10 vanilla
+        // example page. Under WASI without a DOM (i.e. local `swift run`
+        // via wasmkit) it prints a one-line IR summary per reference
+        // card and exits — that's the local "is the pipeline working?"
+        // smoke check.
+        .executableTarget(
+            name: "AdaptiveCardsWebDemo",
+            dependencies: [
+                "ACCore",
+                "AdaptiveCardsRenderingIR",
+                "AdaptiveCardsWebUI",
+            ]),
         .testTarget(
             name: "ACCoreTests",
             dependencies: ["ACCore"],
