@@ -162,6 +162,19 @@ let package = Package(
             dependencies: [
                 "ACCore",
                 "AdaptiveCardsRenderingIR",
+            ],
+            // The Swift WASM SDK runs the linker with --gc-sections, which
+            // strips @_cdecl exports whose Swift-mangled callees aren't
+            // referenced elsewhere. Explicitly retain the C-ABI symbols so
+            // vanilla-JS hosts can call them via `instance.exports.*`.
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "--export=ac_alloc",
+                    "-Xlinker", "--export=ac_free",
+                    "-Xlinker", "--export=ac_host_render_json",
+                    "-Xlinker", "--export=ac_last_error",
+                    "-Xlinker", "--export=ac_version",
+                ]),
             ]),
         .testTarget(
             name: "ACCoreTests",
