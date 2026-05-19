@@ -50,6 +50,18 @@ let package = Package(
         .library(
             name: "ACTeams",
             targets: ["ACTeams"]),
+        // wasm-port: shared, platform-agnostic Rendering IR. Pure Foundation
+        // + ACCore. Hosts the `RenderingNode` tree types, the `Renderer`,
+        // the `A11yDump` walker, the `SubmitPayload` encoder, and the
+        // `SampleCardLibrary` reference-card index. Cherry-picked from the
+        // windows-port branch (AdaptiveCardsCrossUI/Rendering/*) so that
+        // wasm-port can sit on the same IR contract as windows-port without
+        // pulling in the swift-cross-ui / WinUI View layer. Both branches
+        // are intended to track this code byte-for-byte until it can be
+        // promoted to `main` as the canonical IR target.
+        .library(
+            name: "AdaptiveCardsRenderingIR",
+            targets: ["AdaptiveCardsRenderingIR"]),
         // wasm-port: browser-DOM renderer scaffold for Swift -> WebAssembly
         // hosts. Parallel sibling to `AdaptiveCardsCrossUI` on the
         // windows-port branch. Both targets walk the same `RenderingNode` IR;
@@ -106,6 +118,14 @@ let package = Package(
         .target(
             name: "ACTeams",
             dependencies: ["ACCore", "ACRendering"]),
+        // wasm-port: shared Rendering IR target. Pure Foundation + ACCore.
+        // Mirrored from windows-port's AdaptiveCardsCrossUI/Rendering/* set;
+        // see the library product comment above for the rationale on why
+        // this lives as its own target rather than being copy/pasted into
+        // AdaptiveCardsWebUI.
+        .target(
+            name: "AdaptiveCardsRenderingIR",
+            dependencies: ["ACCore"]),
         // wasm-port: browser-DOM renderer target. JavaScriptKit is only
         // injected when the Swift WASM SDK is selected, so Apple / Linux
         // native builds compile this as an empty module via the
@@ -114,6 +134,7 @@ let package = Package(
             name: "AdaptiveCardsWebUI",
             dependencies: [
                 "ACCore",
+                "AdaptiveCardsRenderingIR",
                 .product(name: "JavaScriptKit", package: "JavaScriptKit"),
             ]),
         .testTarget(
