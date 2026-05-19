@@ -150,6 +150,19 @@ let package = Package(
                 "AdaptiveCardsRenderingIR",
                 "AdaptiveCardsWebUI",
             ]),
+        // wasm-port: C-ABI WASM module for non-Swift web hosts. Compiles
+        // to a `.wasm` whose exports (ac_alloc / ac_free /
+        // ac_host_render_json / ac_last_error / ac_version) are callable
+        // from vanilla JS, TypeScript, React, etc. without any
+        // JavaScriptKit shim. Returns RenderingNode IR as JSON; hosts
+        // walk it into their own widget tree (vanilla DOM in W10, React
+        // VDOM in W11). Analogous to windows-port's `AdaptiveCardsCABI`.
+        .executableTarget(
+            name: "AdaptiveCardsWasmCABI",
+            dependencies: [
+                "ACCore",
+                "AdaptiveCardsRenderingIR",
+            ]),
         .testTarget(
             name: "ACCoreTests",
             dependencies: ["ACCore"],
