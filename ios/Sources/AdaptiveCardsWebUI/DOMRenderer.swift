@@ -197,6 +197,19 @@ public final class DOMRenderer {
             return makeCompoundButtonElement(
                 title: title, subtitle: subtitle, icon: icon, action: action)
 
+        case let .carousel(pages, selectedPageIndex, autoAdvanceMs):
+            return makeCarouselElement(
+                pages: pages,
+                selectedPageIndex: selectedPageIndex,
+                autoAdvanceMs: autoAdvanceMs)
+
+        case let .list(style, items):
+            return makeListElement(style: style, items: items)
+
+        case let .media(sources, posterURL, altText):
+            return makeMediaElement(
+                sources: sources, posterURL: posterURL, altText: altText)
+
         default:
             return makeUnsupportedElement(for: node)
         }
