@@ -50,7 +50,7 @@ public final class DOMRenderer {
 
     /// JS-callable closures retained for the renderer's lifetime so the
     /// `JSClosure -> JSValue` bridge survives across the JS event loop.
-    private var retainedClosures: [JSClosure] = []
+    internal var retainedClosures: [JSClosure] = []
 
     /// Live input field registry. Populated as inputs are rendered;
     /// drained into the merged JSON payload on `.submit` clicks.
@@ -185,6 +185,18 @@ public final class DOMRenderer {
         case let .rating(value, max, count):
             return makeRatingDisplayElement(value: value, max: max, count: count)
 
+        case let .chart(kind, title, data, showLegend):
+            return makeChartElement(
+                kind: kind, title: title, data: data, showLegend: showLegend)
+
+        case let .tabSet(tabs, selectedTabIndex):
+            return makeTabSetElement(
+                tabs: tabs, selectedTabIndex: selectedTabIndex)
+
+        case let .compoundButton(title, subtitle, icon, action):
+            return makeCompoundButtonElement(
+                title: title, subtitle: subtitle, icon: icon, action: action)
+
         default:
             return makeUnsupportedElement(for: node)
         }
@@ -313,7 +325,30 @@ public final class DOMRenderer {
         return element
     }
 
-    fileprivate static func tag(for kind: RenderingNode.ActionKind) -> String {
+    /// Attach a click handler to `element` that funnels `action` through
+    /// the renderer's dispatcher. `.submit` clicks go through
+    /// `mergedSubmitPayload` first so the dispatcher receives a fully-
+    /// merged JSON payload. Used by `.compoundButton` (W6) and any
+    /// future button-like composite case.
+    internal func installClickDispatch(
+        on element: JSObject,
+        action: RenderingNode.ActionKind
+    ) {
+        let closure = JSClosure { [weak self] _ in
+            guard let self else { return .undefined }
+            if case .submit(let dataJSON) = action {
+                let merged = self.mergedSubmitPayload(originalJSON: dataJSON)
+                self.dispatcher?.dispatch(.submit(dataJSON: merged))
+            } else {
+                self.dispatcher?.dispatch(action)
+            }
+            return .undefined
+        }
+        retainedClosures.append(closure)
+        element.onclick = JSValue.object(closure)
+    }
+
+        internal static func tag(for kind: RenderingNode.ActionKind) -> String {
         switch kind {
         case .submit:           return "submit"
         case .openUrl:          return "openUrl"
@@ -581,7 +616,7 @@ public final class DOMRenderer {
     ///
     /// Mirrors the windows-port's `SubmitPayload.merge(...)` semantics
     /// — see `AdaptiveCardsRenderingIR/SubmitPayload.swift`.
-    private func mergedSubmitPayload(originalJSON: String?) -> String {
+    internal func mergedSubmitPayload(originalJSON: String?) -> String {
         var merged: [String: Any] = [:]
         if let originalJSON,
            let data = originalJSON.data(using: .utf8),
