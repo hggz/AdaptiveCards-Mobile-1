@@ -1,0 +1,5 @@
+# Build output for the WPF host
+bin/
+obj/
+.vs/
+*.user

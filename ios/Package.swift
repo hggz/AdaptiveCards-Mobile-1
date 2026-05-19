@@ -74,6 +74,15 @@ let package = Package(
             name: "AdaptiveCardsCABI",
             type: .static,
             targets: ["AdaptiveCardsCABI"]),
+        // windows-port: same code, dynamic-library variant so hosts
+        // that can't statically link a Swift toolchain (e.g. C# .NET
+        // apps via P/Invoke, Electron via node-ffi, Rust via libloading)
+        // can load the .dll at runtime. See
+        // examples/embed-windows-csharp/ for a worked WPF host.
+        .library(
+            name: "AdaptiveCardsCABIShared",
+            type: .dynamic,
+            targets: ["AdaptiveCardsCABI"]),
     ],
     dependencies: [
         // windows-port: SwiftUI-like cross-platform UI substrate. Used only by
