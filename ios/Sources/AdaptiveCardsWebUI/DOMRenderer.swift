@@ -164,6 +164,27 @@ public final class DOMRenderer {
                 id: id, label: label, value: value,
                 max: max, isRequired: isRequired)
 
+        case let .facts(pairs):
+            return makeFactsElement(pairs: pairs)
+
+        case let .code(text, language, wrap):
+            return makeCodeElement(text: text, language: language, wrap: wrap)
+
+        case let .progressBar(value, label):
+            return makeProgressBarElement(value: value, label: label)
+
+        case let .spinner(label):
+            return makeSpinnerElement(label: label)
+
+        case let .accordion(panels):
+            return makeAccordionElement(panels: panels)
+
+        case let .table(headers, rows):
+            return makeTableElement(headers: headers, rows: rows)
+
+        case let .rating(value, max, count):
+            return makeRatingDisplayElement(value: value, max: max, count: count)
+
         default:
             return makeUnsupportedElement(for: node)
         }
@@ -178,7 +199,7 @@ public final class DOMRenderer {
         }
     }
 
-    fileprivate func createElement(_ tag: String, dataACNode: String) -> JSObject {
+    internal func createElement(_ tag: String, dataACNode: String) -> JSObject {
         let element = document.createElement!(tag).object!
         _ = element.setAttribute!("data-ac-node", dataACNode)
         return element
