@@ -26,7 +26,7 @@ name: windows-port-ci
 #                             REQUIRED, no continue-on-error, per brief.
 #   windows-render-smoke   -- Re-uses the cached Windows .build/ and
 #                             launches AdaptiveCardsWindowsDemo.exe with
-#                             each of the 7 reference cards preselected
+#                             each of the 8 reference cards preselected
 #                             via AC_DEFAULT_SAMPLE. The smoke signal is
 #                             non-crash. Then PrintWindow-captures each
 #                             window to PNG and pixel-diffs against the
@@ -344,7 +344,7 @@ jobs:
           Write-Host "::endgroup::"
 
       - name: Launch demo per reference card + capture
-        # For each of the 7 reference samples:
+          # For each of the 8 reference samples:
         #  1. Spawn the demo with AC_DEFAULT_SAMPLE preselected.
         #  2. Wait ~6 seconds for the WinUI runtime to spin up.
         #  3. If the process exited before the wait completed, the run
@@ -428,7 +428,8 @@ jobs:
             'all-actions.json',
             'table.json',
             'rating.json',
-            'edge-empty-card.json'
+            'edge-empty-card.json',
+            'windows-extras.json'
           )
           $sig = 'using System; using System.Runtime.InteropServices; public class WC { [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect); [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int n); [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; } }'
           Add-Type -AssemblyName System.Drawing
@@ -510,7 +511,7 @@ jobs:
             Write-Host "::error::$($failures.Count) sample(s) failed to launch: $($failures -join ', ')"
             exit 1
           }
-          Write-Host "All 7 samples launched without crashing."
+          Write-Host "All 8 samples launched without crashing."
 
       - name: Pixel-diff captures against committed baselines
         # Compare each fresh capture in screenshots/ to the committed
@@ -538,7 +539,8 @@ jobs:
             'all-actions.json',
             'table.json',
             'rating.json',
-            'edge-empty-card.json'
+            'edge-empty-card.json',
+            'windows-extras.json'
           )
           $tolerance = 10
           $maxDriftFraction = 0.02
