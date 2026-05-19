@@ -28,7 +28,7 @@ import ACCore
 public enum AdaptiveCardsWebUI {
     /// Library version string. Bumped alongside docs/wasm-port.md at each
     /// phase commit so a host can sanity-check what it imported.
-    public static let version = "0.11.0-wasm-port-W11"
+    public static let version = "0.12.0-wasm-port-W12"
 
     /// Smoke-call from a host page: returns the documentURI of the loaded
     /// document. Used by the W8 demo to confirm the module instantiated
