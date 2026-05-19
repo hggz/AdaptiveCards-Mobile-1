@@ -1,56 +1,81 @@
-// wasm-port: Phase W2 — first IR -> DOM walker. Renders the five
-// foundational `RenderingNode` cases (`.text`, `.richRun`, `.image`,
-// `.verticalStack`, `.horizontalStack`) via JavaScriptKit's binding to
-// `document.createElement` and friends. Every other case currently
-// produces a placeholder `<div class="ac-unsupported" data-ac-node="…">`
-// that subsequent phases (W3–W7) will replace with real renderings.
+// wasm-port: IR -> browser DOM walker. Renders `RenderingNode` trees via
+// JavaScriptKit by emitting `<div>`, `<span>`, `<img>`, `<button>`, etc.
+// The walker grows one phase at a time:
+//
+//   W2  — text, richRun, image, verticalStack, horizontalStack
+//   W3  — button + ActionDispatcher wiring                     (THIS PHASE)
+//   W4  — input fields + submit payload                        (next)
+//   W5  — facts / code / progressBar / spinner / accordion /
+//         table / rating (display)
+//   W6  — chart / tabSet / compoundButton
+//   W7  — carousel / list / media + WCAG pause button
 //
 // Design rules carried over from windows-port's `AdaptiveCardView.swift`:
 //   * The walker NEVER touches the `RenderingNode` IR — it only reads it.
 //     The IR is the contract shared with windows-port via the
 //     `AdaptiveCardsRenderingIR` target.
-//   * Style is applied via CSS classes (`ac-*`) AND inline styles for the
-//     handful of properties (`white-space`, `display: flex`, `gap`) that
-//     are intrinsic to the layout semantics. Hosts can override anything
-//     via their own stylesheet using the `data-ac-node` attribute and
-//     `ac-*` class selectors.
-//   * Action routing is NOT done here. Phase W3 introduces an
-//     ``ActionDispatcher`` protocol; demos and host adapters supply the
-//     concrete behaviour (the windows-port equivalent is
-//     `ShellExecuteW` for `Action.OpenUrl`).
+//   * Style is applied via stable `ac-*` CSS classes AND minimal inline
+//     styles for layout-intrinsic properties. Hosts can override anything
+//     via the `data-ac-node` attribute or `ac-*` class selectors.
+//   * Action routing lives in `WebActionRouter`. Hosts swap in their own
+//     `ActionDispatcher` for non-default policies.
 //
 // JavaScriptKit interop notes:
 //   * Every JS call returns a `JSValue` whose `.object` getter unwraps
 //     to a `JSObject`. We force-unwrap with `!` only on calls whose JS
 //     contract guarantees a non-null result (e.g. `document.createElement`).
-//   * Properties set via dynamic member assignment (`element.className = …`)
-//     are coerced through ``ConvertibleToJSValue``; plain `String` works.
-//   * Method calls go through the function-call subscript on `JSObject`
-//     (`element.setAttribute("k", "v")`); the return value is discarded.
+//   * Dynamic methods (`obj.setAttribute(...)`) return
+//     `Optional<callable>` from the dynamic-member lookup and MUST be
+//     force-unwrapped before call: `obj.setAttribute!("k", "v")`.
+//   * `JSClosure` retains itself across the JS/Swift boundary. Until W7
+//     adds a renderer-scoped closure pool, button click handlers leak;
+//     this is acceptable for the current single-card lifetime model.
 
 #if canImport(JavaScriptKit)
 import JavaScriptKit
 import AdaptiveCardsRenderingIR
 
-/// IR -> DOM walker. Stateless aside from the cached `document` reference
-/// so the walker is safe to reuse across many cards within a single page.
-public struct DOMRenderer {
+/// IR -> DOM walker. Final-class so the `dispatcher` slot can be rebound
+/// without callers having to thread a fresh struct through every API.
+/// Stateless aside from the cached `document` reference + the dispatcher,
+/// so a single renderer is safe to reuse across many cards within a page.
+public final class DOMRenderer {
 
     /// The `document` JS object the walker writes into. Defaults to the
     /// page-global `document`; tests may inject a `JSDOM`-style stub.
     public let document: JSObject
 
-    /// Construct a renderer bound to the page-global `document`. Equivalent
-    /// to ``init(document:)`` with the default value.
+    /// Policy for handling button clicks. `nil` falls back to a no-op:
+    /// click handlers are still attached so callers can observe via
+    /// DevTools, but nothing else fires.
+    public var dispatcher: (any ActionDispatcher)?
+
+    /// Closure pool. JS-callable closures created by the walker are
+    /// retained here so the `JSClosure -> JSValue` bridge survives until
+    /// the renderer itself is released. W2 didn't need this; W3 onwards
+    /// does once we attach `onclick` handlers.
+    private var retainedClosures: [JSClosure] = []
+
+    /// Construct a renderer bound to the page-global `document`, with no
+    /// dispatcher attached.
     public init() {
         self.document = JSObject.global.document.object!
+        self.dispatcher = nil
     }
 
-    /// Construct a renderer bound to an arbitrary `document`-like object.
-    /// Used by the host-side embed examples (W10 / W11) that want to mount
-    /// cards into a detached `DocumentFragment`.
-    public init(document: JSObject) {
+    /// Construct a renderer bound to the page-global `document` and a
+    /// caller-supplied dispatcher.
+    public convenience init(dispatcher: any ActionDispatcher) {
+        self.init()
+        self.dispatcher = dispatcher
+    }
+
+    /// Construct a renderer bound to an arbitrary `document`-like object
+    /// (used by host embed examples that render into a detached
+    /// `DocumentFragment`).
+    public init(document: JSObject, dispatcher: (any ActionDispatcher)? = nil) {
         self.document = document
+        self.dispatcher = dispatcher
     }
 
     /// Render `node` into `parent`, appending the produced element as
@@ -89,6 +114,9 @@ public struct DOMRenderer {
             return makeStackElement(
                 direction: .horizontal, spacing: spacing, children: children)
 
+        case let .button(title, kind):
+            return makeButtonElement(title: title, kind: kind)
+
         default:
             return makeUnsupportedElement(for: node)
         }
@@ -110,7 +138,7 @@ public struct DOMRenderer {
     /// Create a bare element of the given tag, applying the standard
     /// `data-ac-node` attribute so downstream tests + host stylesheets
     /// have a single, stable selector for every IR case.
-    private func createElement(_ tag: String, dataACNode: String) -> JSObject {
+    fileprivate func createElement(_ tag: String, dataACNode: String) -> JSObject {
         let element = document.createElement!(tag).object!
         _ = element.setAttribute!("data-ac-node", dataACNode)
         return element
@@ -130,7 +158,6 @@ public struct DOMRenderer {
         if isSubtle { classes.append("ac-text-subtle") }
         element.className = JSValue.string(classes.joined(separator: " "))
         element.textContent = JSValue.string(text)
-        // `whiteSpace` is the JS DOM camelCase form of CSS `white-space`.
         if let style = element.style.object {
             style.whiteSpace = JSValue.string(wrap ? "pre-wrap" : "nowrap")
         }
@@ -201,15 +228,55 @@ public struct DOMRenderer {
         return element
     }
 
+    /// `.button(title, kind)` -> `<button data-ac-node="button">title</button>`
+    /// with a click handler that funnels the `ActionKind` through the
+    /// renderer's `dispatcher`. The action-kind tag is mirrored to a
+    /// `data-ac-action-kind` attribute so end-to-end tests can assert on
+    /// it without needing a live `dispatcher`.
+    private func makeButtonElement(
+        title: String,
+        kind: RenderingNode.ActionKind
+    ) -> JSObject {
+        let element = createElement("button", dataACNode: "button")
+        element.className = JSValue.string(
+            "ac-button ac-action-\(Self.tag(for: kind))")
+        _ = element.setAttribute!("type", "button")
+        _ = element.setAttribute!("data-ac-action-kind", Self.tag(for: kind))
+        element.textContent = JSValue.string(title)
+
+        let closure = JSClosure { [weak self] _ in
+            self?.dispatcher?.dispatch(kind)
+            return .undefined
+        }
+        retainedClosures.append(closure)
+        element.onclick = JSValue.object(closure)
+        return element
+    }
+
+    /// Stable, lowercase tag string for an `ActionKind`. Mirrors the
+    /// shape windows-port emits in `A11yBaselines/*.a11y.txt` so the
+    /// shared baselines stay portable. Surfaced as a `data-ac-action-kind`
+    /// attribute on every button so tests have a deterministic selector.
+    fileprivate static func tag(for kind: RenderingNode.ActionKind) -> String {
+        switch kind {
+        case .submit:           return "submit"
+        case .openUrl:          return "openUrl"
+        case .showCard:         return "showCard"
+        case .execute:          return "execute"
+        case .toggleVisibility: return "toggleVisibility"
+        case .popover:          return "popover"
+        case .runCommands:      return "runCommands"
+        case .openUrlDialog:    return "openUrlDialog"
+        case .unknown:          return "unknown"
+        }
+    }
+
     /// Catch-all for IR cases not yet implemented. The placeholder element
     /// carries enough metadata for the W10 Playwright gate to flag missing
     /// renderings, while still keeping the parent stack layout intact.
     private func makeUnsupportedElement(for node: RenderingNode) -> JSObject {
         let element = createElement("div", dataACNode: "unsupported")
         element.className = JSValue.string("ac-unsupported")
-        // `String(reflecting:)` produces a stable, debuggable description
-        // (e.g. "AdaptiveCardsRenderingIR.RenderingNode.facts(...)") that
-        // surfaces nicely in DevTools.
         _ = element.setAttribute!(
             "data-ac-unsupported-case", String(reflecting: node))
         element.textContent = JSValue.string("[unsupported node]")
