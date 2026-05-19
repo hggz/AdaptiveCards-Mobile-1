@@ -91,7 +91,12 @@ struct AdaptiveCardsWindowsDemo: App {
         switch result {
         case .success(let card):
             AdaptiveCardView(card: card) { action in
-                transcript.append("\(filename) -> \(describe(action))")
+                // Try to handle the action natively (e.g. OpenUrl
+                // launches the system browser). Either way, append a
+                // transcript line so the user can see what fired.
+                let handled = ActionRouter.execute(action)
+                let prefix = handled ? "✓" : "•"
+                transcript.append("\(prefix) \(filename) -> \(describe(action))")
             }
         case .failure(let err):
             Text("Failed to load \(filename): \(err.localizedDescription)")
