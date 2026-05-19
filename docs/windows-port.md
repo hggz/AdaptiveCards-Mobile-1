@@ -249,6 +249,18 @@ diff catches any regression.
 
 ## Embedding from a host app
 
+Three integration paths land on this branch — pick by your host's
+existing toolchain, not by feature parity (they all reach the same
+Swift renderer + the same `RenderingNode` IR):
+
+| Path | When to use | Where |
+|---|---|---|
+| `AdaptiveCardsWindowsEmbedded` Swift API | Your host is itself a Swift / swift-cross-ui app and you want a typed `RenderingNode` tree + `ActionKind` callbacks | `ios/Sources/AdaptiveCardsWindowsEmbedded/` and the `AdaptiveCardsWindowsDemo` target |
+| Static C-ABI link (`AdaptiveCardsCABI.lib`) | Your host is C / C++ / Rust with a `cl.exe` or clang build, and you want a single-executable, no-DLL deployment | [`examples/embed-windows/`](../examples/embed-windows/README.md) |
+| Dynamic C-ABI load (`AdaptiveCardsCABIShared.dll`) | Your host is .NET / Electron / Python / anything with FFI but no static-link path | [`examples/embed-windows-csharp/`](../examples/embed-windows-csharp/README.md) (a working .NET 10 WPF host) |
+
+### Swift API
+
 The `AdaptiveCardsWindowsEmbedded` library product offers a stable
 facade for non-Swift hosts (and Swift hosts that prefer a flat API):
 
@@ -274,10 +286,15 @@ let jsonPlan = try host.renderJSON(json: cardJson)
 // AdaptiveCardsCrossUI library and place it in your own SceneBuilder.
 ```
 
-### C-ABI shim
+`AdaptiveCardsWindowsDemo` is the canonical worked example —
+swift-cross-ui's WinUI 3 backend + the demo's
+`ActionRouter.swift` showing how to wire `Action.OpenUrl` to
+`ShellExecuteW` so the system browser actually launches.
 
-`examples/embed-windows/c_abi/` exposes a `@_cdecl` shim around
-`AdaptiveCardHost`:
+### Static C-ABI link (`cl.exe`)
+
+[`examples/embed-windows/`](../examples/embed-windows/README.md)
+exposes a `@_cdecl` shim around `AdaptiveCardHost`:
 
 ```c
 // adaptive_cards.h
@@ -291,12 +308,60 @@ void    ac_host_set_action_callback(ACHost*, ACActionCallback, void* userdata);
 void    ac_free(char*);
 ```
 
-`AdaptiveCardsCABI` is a static library target backed by
-`@_cdecl` Swift functions. Build via
-`examples/embed-windows/c_abi/build.ps1`; the resulting `host-demo.exe`
-links `main.c` against the static lib + Swift runtime, parses Adaptive
-Card JSON from C, and runs the renderer headlessly. CI exercises this
-path via the `windows-c-example` job.
+`AdaptiveCardsCABI` is a **static** library target backed by `@_cdecl`
+Swift functions. Build via
+[`examples/embed-windows/c_abi/build.ps1`](../examples/embed-windows/c_abi/build.ps1);
+the resulting `host-demo.exe` links `main.c` against the static lib +
+Swift runtime, parses Adaptive Card JSON from C, and runs the renderer
+headlessly. CI exercises this path via the `windows-c-example` job.
+
+> ⚠ Critical link-order detail: `swiftrt.obj` must be the **first**
+> input to `link.exe`. It registers Swift's protocol-conformance
+> descriptors with the runtime; without it, any `JSONDecoder` /
+> `Codable` call from C-hosted Swift crashes with
+> `E_ACCESSVIOLATION`. See
+> [`examples/embed-windows/README.md`](../examples/embed-windows/README.md#why-swiftrtobj-is-the-first-link-input)
+> for the full rationale.
+
+### Dynamic C-ABI load (P/Invoke / FFI)
+
+`AdaptiveCardsCABIShared` is a **dynamic** library product (Phase 29)
+backed by the same `AdaptiveCardsCABI` source target. SwiftPM
+auto-exports every `@_cdecl` symbol when linked as a shared library on
+Windows; verified via `dumpbin /exports`:
+
+```
+ac_free
+ac_host_backend_identifier
+ac_host_create
+ac_host_destroy
+ac_host_fire_action
+ac_host_render_json
+ac_host_set_action_callback
+ac_last_error
+```
+
+[`examples/embed-windows-csharp/`](../examples/embed-windows-csharp/README.md)
+is a worked .NET 10 WPF host (~600 lines C#) that:
+
+1. Walks up from `AppContext.BaseDirectory` to locate
+   `AdaptiveCardsCABIShared.dll` + the Swift runtime bin dir, then
+   `AddDllDirectory`'s both so the Win32 loader resolves the DLL +
+   its transitive Swift-runtime deps.
+2. `DllImport`'s the 8 `ac_*` entry points (`AdaptiveCardsCabi.cs`).
+3. Calls `ac_host_render_json(host, cardJson)`, parses the returned
+   IR JSON with `System.Text.Json`, and walks every IR `"type"` into
+   the matching WPF control: `TextBlock` / `Button` / `CheckBox` /
+   `ComboBox` / `ProgressBar` / `Expander` / `Grid` / `TabControl`
+   / `Image` / `DatePicker` (`RenderingNodeWalker.cs`).
+4. Routes `Action.OpenUrl` clicks via `Process.Start(UseShellExecute = true)`
+   — WPF's portable equivalent of the swift-cross-ui demo's
+   `ShellExecuteW` path.
+
+Substitute the WPF mappings for `Microsoft.UI.Xaml.Controls.*` and
+you have a WinUI 3 host; substitute `System.Windows.Forms.*` and you
+have a WinForms host; substitute Electron + node-ffi-napi and you
+have an Electron host. The contract is the same.
 
 ---
 
@@ -332,6 +397,22 @@ ACCore decodes now reaches the View; the renderer has no remaining
   WCAG-2.2.2-compliant Pause / Resume button (Phase 23).
 * `ChartDatum.color` (`#RRGGBB` / `#RRGGBBAA`) applies to bar segments
   via `.foregroundColor` (Phase 24).
+* `Action.OpenUrl` opens the system default browser via
+  `ShellExecuteW`; the `ActionRouter` helper in the demo is the
+  worked example of host-side action routing (Phase 28). Library
+  itself stays side-effect-free — emitting `ActionKind` through
+  `onAction` is the contract.
+
+### Host integration paths
+
+* `examples/embed-windows-csharp/` — .NET 10 WPF host POC that
+  P/Invokes `AdaptiveCardsCABIShared.dll` and walks the IR into real
+  WPF controls (Phase 29). Proves the embedding story for any
+  non-Swift, non-C Windows host — WinUI 3 / WinForms / Electron /
+  Rust / Python all use the same C ABI through the same DLL.
+* `examples/embed-windows/` — minimal C host that statically links
+  `AdaptiveCardsCABI.lib` via `cl.exe`. Same ABI, different link
+  model. Exercised end-to-end by the `windows-c-example` CI job.
 
 ### Validation gate
 
