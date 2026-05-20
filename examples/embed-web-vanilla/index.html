@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adaptive Cards — vanilla WASM host</title>
+    <link rel="stylesheet" href="./src/ac-host.css" />
+  </head>
+  <body>
+    <header class="ac-host-header">
+      <h1>Adaptive Cards — vanilla WASM host</h1>
+      <p>
+        Loads <code>ac.wasm</code> (built from
+        <code>AdaptiveCardsWasmCABI</code>), calls
+        <code>ac_host_render_json</code> against the selected reference
+        card, and walks the returned IR JSON into the DOM below.
+      </p>
+      <label>
+        Card:
+        <select id="ac-card-picker"></select>
+      </label>
+      <span id="ac-status" class="ac-status">loading wasm…</span>
+    </header>
+    <main>
+      <div id="ac-card-mount" class="ac-card-mount" aria-live="polite"></div>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

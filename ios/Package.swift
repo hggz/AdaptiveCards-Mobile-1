@@ -1,5 +1,12 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 5.10
 // The swift-tools-version declares the minimum version of Swift required to build this package.
+//
+// Note: `platforms` only narrows minimum versions for Apple platforms. Linux,
+// Windows, Wasm, Android, and any other Swift-supported target build with no
+// platform clause -- so we deliberately do NOT restrict to Apple here. The
+// browser-DOM renderer lives in `AdaptiveCardsWebUI` (wasm-port branch); the
+// swift-cross-ui / WinUI renderer lives in `AdaptiveCardsCrossUI`
+// (windows-port branch). Both consume the same `RenderingNode` IR contract.
 
 import PackageDescription
 
@@ -43,6 +50,39 @@ let package = Package(
         .library(
             name: "ACTeams",
             targets: ["ACTeams"]),
+        // wasm-port: shared, platform-agnostic Rendering IR. Pure Foundation
+        // + ACCore. Hosts the `RenderingNode` tree types, the `Renderer`,
+        // the `A11yDump` walker, the `SubmitPayload` encoder, and the
+        // `SampleCardLibrary` reference-card index. Cherry-picked from the
+        // windows-port branch (AdaptiveCardsCrossUI/Rendering/*) so that
+        // wasm-port can sit on the same IR contract as windows-port without
+        // pulling in the swift-cross-ui / WinUI View layer. Both branches
+        // are intended to track this code byte-for-byte until it can be
+        // promoted to `main` as the canonical IR target.
+        .library(
+            name: "AdaptiveCardsRenderingIR",
+            targets: ["AdaptiveCardsRenderingIR"]),
+        // wasm-port: browser-DOM renderer scaffold for Swift -> WebAssembly
+        // hosts. Parallel sibling to `AdaptiveCardsCrossUI` on the
+        // windows-port branch. Both targets walk the same `RenderingNode` IR;
+        // only the View layer differs (DOM here, WinUI / SwiftUI there).
+        // Apple platforms continue to use the existing native renderers --
+        // this target compiles down to an empty module unless
+        // `canImport(JavaScriptKit)` is true, which today only happens under
+        // the Swift WASM SDK build.
+        .library(
+            name: "AdaptiveCardsWebUI",
+            targets: ["AdaptiveCardsWebUI"]),
+    ],
+    dependencies: [
+        // wasm-port: thin Swift binding around the JS DOM. Provides
+        // `JSObject`, `JSValue`, the `document` global, etc. Compiles only
+        // against the WASM SDK target; absent on Apple / Linux native
+        // builds, which is exactly why every use site is gated behind
+        // `#if canImport(JavaScriptKit)`.
+        .package(
+            url: "https://github.com/swiftwasm/JavaScriptKit.git",
+            from: "0.20.0"),
     ],
     targets: [
         .target(
@@ -78,6 +118,64 @@ let package = Package(
         .target(
             name: "ACTeams",
             dependencies: ["ACCore", "ACRendering"]),
+        // wasm-port: shared Rendering IR target. Pure Foundation + ACCore.
+        // Mirrored from windows-port's AdaptiveCardsCrossUI/Rendering/* set;
+        // see the library product comment above for the rationale on why
+        // this lives as its own target rather than being copy/pasted into
+        // AdaptiveCardsWebUI.
+        .target(
+            name: "AdaptiveCardsRenderingIR",
+            dependencies: ["ACCore"]),
+        // wasm-port: browser-DOM renderer target. JavaScriptKit is only
+        // injected when the Swift WASM SDK is selected, so Apple / Linux
+        // native builds compile this as an empty module via the
+        // `#if canImport(JavaScriptKit)` gate in the source files.
+        .target(
+            name: "AdaptiveCardsWebUI",
+            dependencies: [
+                "ACCore",
+                "AdaptiveCardsRenderingIR",
+                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
+            ]),
+        // wasm-port: standalone demo executable. Compiled for the Swift
+        // WASM SDK, the resulting `.wasm` is loaded by the W10 vanilla
+        // example page. Under WASI without a DOM (i.e. local `swift run`
+        // via wasmkit) it prints a one-line IR summary per reference
+        // card and exits — that's the local "is the pipeline working?"
+        // smoke check.
+        .executableTarget(
+            name: "AdaptiveCardsWebDemo",
+            dependencies: [
+                "ACCore",
+                "AdaptiveCardsRenderingIR",
+                "AdaptiveCardsWebUI",
+            ]),
+        // wasm-port: C-ABI WASM module for non-Swift web hosts. Compiles
+        // to a `.wasm` whose exports (ac_alloc / ac_free /
+        // ac_host_render_json / ac_last_error / ac_version) are callable
+        // from vanilla JS, TypeScript, React, etc. without any
+        // JavaScriptKit shim. Returns RenderingNode IR as JSON; hosts
+        // walk it into their own widget tree (vanilla DOM in W10, React
+        // VDOM in W11). Analogous to windows-port's `AdaptiveCardsCABI`.
+        .executableTarget(
+            name: "AdaptiveCardsWasmCABI",
+            dependencies: [
+                "ACCore",
+                "AdaptiveCardsRenderingIR",
+            ],
+            // The Swift WASM SDK runs the linker with --gc-sections, which
+            // strips @_cdecl exports whose Swift-mangled callees aren't
+            // referenced elsewhere. Explicitly retain the C-ABI symbols so
+            // vanilla-JS hosts can call them via `instance.exports.*`.
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "--export=ac_alloc",
+                    "-Xlinker", "--export=ac_free",
+                    "-Xlinker", "--export=ac_host_render_json",
+                    "-Xlinker", "--export=ac_last_error",
+                    "-Xlinker", "--export=ac_version",
+                ]),
+            ]),
         .testTarget(
             name: "ACCoreTests",
             dependencies: ["ACCore"],
