@@ -1,0 +1,14 @@
+{
+  "name": "@hggz/adaptive-cards-embed-electron",
+  "version": "0.1.0-wasm-port",
+  "private": true,
+  "description": "Electron desktop wrapper around the wasm-port Adaptive Cards renderer.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "echo 'Run scripts/copy-wasm.sh to refresh ac.wasm + cards/'"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0"
+  }
+}

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adaptive Cards × Electron</title>
+    <link rel="stylesheet" href="./ac-host.css" />
+    <!-- Electron renderer needs a relaxed CSP only when pulling the
+         WASI shim from esm.sh. Replace the import in ac-embed.js with
+         a local path to ship a hermetic build. -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self' https://esm.sh https://cdn.esm.sh https://cdn.jsdelivr.net 'unsafe-inline' 'unsafe-eval' data: blob:;
+                   script-src 'self' https://esm.sh https://cdn.esm.sh 'unsafe-inline';
+                   connect-src 'self' https://esm.sh https://cdn.esm.sh;
+                   img-src 'self' https: data:;
+                   media-src 'self' https: data:;
+                   font-src 'self' data:;" />
+    <style>
+      body { font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; margin: 0; background: #fafafa; }
+      .chrome { padding: 16px 24px; background: white; border-bottom: 1px solid #d8d8da; }
+      .chrome h1 { margin: 0 0 4px 0; font-size: 18px; }
+      .chrome p  { margin: 0; color: #5a5a5e; }
+      .chrome label { display: inline-flex; gap: 8px; align-items: center; margin-top: 8px; }
+      .chrome .status { color: #5a5a5e; font-style: italic; margin-left: 8px; }
+      main { padding: 16px 24px; }
+      .ac-card-mount {
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="chrome">
+      <h1>Adaptive Cards × Electron</h1>
+      <p>
+        Desktop host: Electron renderer process loads
+        <code>ac.wasm</code> and walks the IR JSON into the DOM via
+        the same <code>ac-embed.js</code> the static-web examples
+        use.
+      </p>
+      <label>
+        Card:
+        <select id="picker"></select>
+        <span id="status" class="status">loading wasm…</span>
+      </label>
+    </header>
+    <main>
+      <div id="card" class="ac-card-mount" aria-live="polite"></div>
+    </main>
+
+    <script type="module">
+      import { loadAdaptiveCards } from "./ac-embed.js";
+
+      const CARDS = [
+        "simple-text.json",
+        "containers.json",
+        "input-form.json",
+        "all-actions.json",
+        "table.json",
+        "rating.json",
+        "edge-empty-card.json",
+        "windows-extras.json",
+      ];
+
+      const picker = document.getElementById("picker");
+      for (const c of CARDS) {
+        const o = document.createElement("option");
+        o.value = c;
+        o.textContent = c;
+        picker.appendChild(o);
+      }
+      const status = document.getElementById("status");
+      const mount = document.getElementById("card");
+
+      const ac = await loadAdaptiveCards("./ac.wasm");
+      status.textContent = `wasm loaded (${ac.versionString()})`;
+
+      async function render(name) {
+        status.textContent = `loading ${name}…`;
+        try {
+          const json = await (await fetch(`./cards/${name}`)).text();
+          ac.render(json, mount, {
+            onAction: (a) => {
+              // In Electron, `window.open` opens an in-app popup.
+              // For external URLs, prefer the system browser via
+              // shell.openExternal — wire that in by adding a
+              // preload bridge if/when this matters for your app.
+              if (a.kind === "openUrl") window.open(a.openUrl, "_blank");
+              else console.log("ac:action", a);
+            },
+          });
+          status.textContent = `${name} — rendered`;
+        } catch (e) {
+          status.textContent = `error: ${e.message}`;
+          console.error(e);
+        }
+      }
+      picker.addEventListener("change", (e) => render(e.target.value));
+      render(picker.value);
+    </script>
+  </body>
+</html>
