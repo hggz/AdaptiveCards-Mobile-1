@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adaptive Cards × htmx</title>
+    <link rel="stylesheet" href="./ac-host.css" />
+    <!-- htmx 2.x, pinned. -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+      body { font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; margin: 0; }
+      .doc { max-width: 800px; margin: 0 auto; padding: 24px; }
+      pre.code-doc { background: #f6f8fa; padding: 12px 16px; border-radius: 6px; overflow-x: auto; }
+      .picker { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+      .picker button {
+        padding: 6px 12px;
+        border: 1px solid #d0d7de;
+        border-radius: 999px;
+        background: white;
+        cursor: pointer;
+        font: inherit;
+      }
+      .picker button.htmx-request { background: #fff7e6; }
+      .ac-card-mount {
+        border: 1px dashed #d0d7de;
+        padding: 12px;
+        border-radius: 6px;
+        min-height: 80px;
+      }
+      #status { color: #5a5a5e; font-style: italic; }
+    </style>
+  </head>
+  <body>
+    <main class="doc">
+      <h1>Adaptive Cards × htmx</h1>
+      <p>
+        htmx drives the card-fetch lifecycle declaratively — every
+        button below carries <code>hx-get</code> + <code>hx-target</code>
+        attributes. The page intercepts htmx's
+        <code>htmx:beforeSwap</code> event to replace the would-be
+        HTML swap with a call to the WASM-backed Adaptive Cards
+        renderer.
+      </p>
+      <p>
+        Net effect: htmx as the <em>event + request engine</em>, this
+        repo's renderer as the <em>content engine</em>. Same posture
+        most "X × htmx" integrations take when X is a client-side
+        rendering library (charts, maps, code editors, etc.).
+      </p>
+
+      <h2>Pickers (htmx-wired)</h2>
+      <div class="picker" id="picker"></div>
+      <p id="status">loading wasm…</p>
+
+      <h2>Mount</h2>
+      <div id="ac-card-mount" class="ac-card-mount" aria-live="polite"></div>
+
+      <h2>The htmx-side glue</h2>
+      <pre class="code-doc">&lt;button hx-get="./cards/simple-text.json"
+        hx-target="#ac-card-mount"&gt;simple-text&lt;/button&gt;
+
+&lt;script type="module"&gt;
+  import { loadAdaptiveCards } from "./ac-embed.js";
+  const ac = await loadAdaptiveCards("./ac.wasm");
+  document.body.addEventListener("htmx:beforeSwap", (evt) =&gt; {
+    if (evt.detail.target.id !== "ac-card-mount") return;
+    evt.detail.shouldSwap = false;           // cancel default HTML swap
+    ac.render(
+      evt.detail.serverResponse,
+      document.getElementById("ac-card-mount")
+    );
+  });
+&lt;/script&gt;</pre>
+
+      <h2>Why intercept <code>htmx:beforeSwap</code>?</h2>
+      <p>
+        htmx's default behaviour is to splice the server's response
+        into <code>hx-target</code> as raw HTML. Our card endpoints
+        return JSON, not HTML — letting htmx splice the raw JSON
+        text into the DOM would corrupt the page. By cancelling the
+        default swap and routing the response into the renderer, we
+        get all of htmx's nice declarative request/lifecycle goodies
+        (hx-trigger, hx-indicator, hx-confirm, hx-on::after-request,
+        etc.) without giving up the IR-walker contract.
+      </p>
+
+      <h2>What this proves</h2>
+      <ul>
+        <li>
+          The <code>ac-embed.js</code> module is framework-agnostic:
+          this page uses it from htmx-wired code paths, exactly as
+          the React + vanilla example pages use it from their own
+          frameworks. Same WASM module, same IR contract, same
+          <code>data-ac-node</code> attributes, same <code>ac-*</code>
+          classes.
+        </li>
+        <li>
+          The integration works for server-rendered hosts (Rails,
+          Django, ASP.NET Core, FastAPI, etc.) — every htmx host fits
+          this pattern. Your server returns the card JSON exactly as
+          it would for any other JSON API; htmx + this glue handles
+          the rest.
+        </li>
+      </ul>
+
+      <script type="module">
+        import { loadAdaptiveCards } from "./ac-embed.js";
+
+        const CARDS = [
+          "simple-text.json",
+          "containers.json",
+          "input-form.json",
+          "all-actions.json",
+          "table.json",
+          "rating.json",
+          "edge-empty-card.json",
+          "windows-extras.json",
+        ];
+
+        const picker = document.getElementById("picker");
+        for (const c of CARDS) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = c;
+          btn.setAttribute("hx-get", `./cards/${c}`);
+          btn.setAttribute("hx-target", "#ac-card-mount");
+          btn.setAttribute("hx-swap", "innerHTML");
+          btn.setAttribute("hx-indicator", "#status");
+          picker.appendChild(btn);
+        }
+        // htmx scans the body once on DOMContentLoaded; since we
+        // appended buttons after that, process them manually.
+        htmx.process(picker);
+
+        const status = document.getElementById("status");
+        const ac = await loadAdaptiveCards("./ac.wasm");
+        status.textContent = `wasm loaded (${ac.versionString()}). pick a card.`;
+
+        document.body.addEventListener("htmx:beforeSwap", (evt) => {
+          if (evt.detail.target.id !== "ac-card-mount") return;
+          evt.detail.shouldSwap = false;
+          try {
+            const json = evt.detail.serverResponse;
+            ac.render(json, document.getElementById("ac-card-mount"), {
+              onAction: (a) => {
+                if (a.kind === "openUrl") window.open(a.openUrl, "_blank");
+                else console.log("ac:action", a);
+              },
+            });
+            status.textContent = `rendered ${evt.detail.requestConfig.path
+              .split("/").pop()}`;
+          } catch (e) {
+            status.textContent = `error: ${e.message}`;
+            console.error(e);
+          }
+        });
+
+        document.body.addEventListener("htmx:responseError", (evt) => {
+          status.textContent = `fetch error: ${evt.detail.xhr.status}`;
+        });
+      </script>
+    </main>
+  </body>
+</html>
