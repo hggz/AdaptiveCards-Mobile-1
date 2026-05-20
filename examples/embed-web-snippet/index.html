@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adaptive Cards — drop-in snippet</title>
+    <link rel="stylesheet" href="./ac-host.css" />
+    <style>
+      body { font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; margin: 0; }
+      .doc { max-width: 800px; margin: 0 auto; padding: 24px; }
+      pre.code-doc {
+        background: #f6f8fa;
+        padding: 12px 16px;
+        border-radius: 6px;
+        overflow-x: auto;
+      }
+      .ac-card-mount { border: 1px dashed #d0d7de; padding: 12px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <main class="doc">
+      <h1>Drop-in Adaptive Cards renderer</h1>
+      <p>
+        Minimum-viable example: one HTML file, one ES module, one
+        <code>ac.wasm</code> binary. No npm step, no bundler, no build
+        process. Drop these four files
+        (<code>index.html</code>, <code>ac-embed.js</code>,
+        <code>ac-host.css</code>, <code>ac.wasm</code>) anywhere your
+        existing web app serves static assets.
+      </p>
+
+      <h2>The integration</h2>
+      <pre class="code-doc">&lt;link rel="stylesheet" href="./ac-host.css"&gt;
+&lt;div id="my-card"&gt;&lt;/div&gt;
+
+&lt;script type="module"&gt;
+  import { loadAdaptiveCards } from "./ac-embed.js";
+  const ac = await loadAdaptiveCards("./ac.wasm");
+  const cardJSON = await (await fetch("./cards/simple-text.json")).text();
+  ac.render(cardJSON, document.getElementById("my-card"), {
+    onAction: (action) =&gt; console.log("ac:action", action),
+  });
+&lt;/script&gt;</pre>
+
+      <h2>Live preview</h2>
+      <p>
+        <select id="picker"></select>
+        <span id="status"></span>
+      </p>
+      <div id="my-card" class="ac-card-mount"></div>
+
+      <h2>What gets rendered</h2>
+      <p>
+        Every Adaptive Card element comes out as a stable
+        <code>&lt;div data-ac-node="…" class="ac-* …"&gt;</code> shape.
+        The companion stylesheet (<code>ac-host.css</code>) ships
+        reasonable defaults; your app's own CSS can override any
+        class or attribute selector freely.
+      </p>
+
+      <script type="module">
+        import { loadAdaptiveCards } from "./ac-embed.js";
+
+        const CARDS = [
+          "simple-text.json",
+          "containers.json",
+          "input-form.json",
+          "all-actions.json",
+          "table.json",
+          "rating.json",
+          "edge-empty-card.json",
+          "windows-extras.json",
+        ];
+
+        const picker = document.getElementById("picker");
+        for (const c of CARDS) {
+          const o = document.createElement("option");
+          o.value = c;
+          o.textContent = c;
+          picker.appendChild(o);
+        }
+        const status = document.getElementById("status");
+        const mount = document.getElementById("my-card");
+
+        status.textContent = "loading wasm…";
+        const ac = await loadAdaptiveCards("./ac.wasm");
+        status.textContent = `wasm loaded (${ac.versionString()})`;
+
+        async function render(name) {
+          status.textContent = `loading ${name}…`;
+          try {
+            const json = await (await fetch(`./cards/${name}`)).text();
+            ac.render(json, mount, {
+              onAction: (a) => {
+                if (a.kind === "openUrl") window.open(a.openUrl, "_blank");
+                else console.log("ac:action", a);
+              },
+            });
+            status.textContent = `${name} — rendered`;
+          } catch (e) {
+            status.textContent = `error: ${e.message}`;
+            console.error(e);
+          }
+        }
+        picker.addEventListener("change", (e) => render(e.target.value));
+        render(picker.value);
+      </script>
+    </main>
+  </body>
+</html>
