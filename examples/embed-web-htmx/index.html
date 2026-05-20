@@ -134,7 +134,11 @@
 
         const status = document.getElementById("status");
         const ac = await loadAdaptiveCards("./ac.wasm");
-        status.textContent = `wasm loaded (${ac.versionString()}). pick a card.`;
+        status.textContent = `wasm loaded (${ac.versionString()}). rendering first card...`;
+        // Auto-trigger the first picker button so the page is not
+        // empty on first paint (matches the snippet example).
+        const firstBtn = picker.querySelector("button");
+        if (firstBtn) firstBtn.click();
 
         document.body.addEventListener("htmx:beforeSwap", (evt) => {
           if (evt.detail.target.id !== "ac-card-mount") return;
