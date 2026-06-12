@@ -1,0 +1,85 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "metadata": {
+    "icm": "812389686",
+    "regressionOf": "776036215",
+    "purpose": "Amplified tall accordion repro for ToggleVisibility scroll-region (symptom 1) and z-order overlap (symptom 2). Same chevron pattern as the shipped 776036215 disclaimer, but with a deliberately TALL hidden Container so the expanded body exceeds the visible area and forces a scroll region. Bottom_Sentinel must remain reachable in the accessibility tree after expand.",
+    "euiiNote": "No real customer text. Generic placeholder copy only."
+  },
+  "body": [
+    {
+      "type": "ColumnSet",
+      "id": "Accordion_Header_Row",
+      "selectAction": {
+        "type": "Action.ToggleVisibility",
+        "id": "Toggle_Tall_Body",
+        "title": "Toggle details",
+        "targetElements": [
+          { "elementId": "Tall_Body" },
+          { "elementId": "Chevron_Collapsed" },
+          { "elementId": "Chevron_Expanded" }
+        ]
+      },
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "id": "Accordion_Title",
+              "text": "Compliance details",
+              "weight": "bolder",
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "id": "Chevron_Collapsed",
+              "text": "▾",
+              "isVisible": true
+            },
+            {
+              "type": "TextBlock",
+              "id": "Chevron_Expanded",
+              "text": "▴",
+              "isVisible": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "id": "Tall_Body",
+      "isVisible": false,
+      "spacing": "medium",
+      "items": [
+        { "type": "TextBlock", "id": "Tall_Line_01", "text": "Section 1. This is a deliberately long disclaimer block used to force the expanded accordion content to exceed the visible area of the host cell.", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_02", "text": "Section 2. When the accordion expands, the host cell height must be re-measured so the new content is fully laid out and a scroll region is created.", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_03", "text": "Section 3. If the host cell height is not re-invalidated, the bottom of this content becomes unreachable and clipped (symptom 1).", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_04", "text": "Section 4. If the content overflows its host cell frame instead of growing the cell, it renders behind the next adaptive card in the feed (symptom 2).", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_05", "text": "Section 5. Each of these lines wraps across multiple visual rows to amplify the total expanded height well beyond a single phone screen.", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_06", "text": "Section 6. Additional padding text to push the expanded body height past the visible region of a compact iPhone layout.", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_07", "text": "Section 7. More padding text. The accessibility tree should still expose every one of these elements after expansion.", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_08", "text": "Section 8. VoiceOver users must be able to reach the final sentinel element by scrolling within the expanded region.", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_09", "text": "Section 9. Continued padding to guarantee the fitting height grows substantially on expand versus collapse.", "wrap": true },
+        { "type": "TextBlock", "id": "Tall_Line_10", "text": "Section 10. Final padding block before the sentinel. The sentinel below marks the very bottom of the expanded content.", "wrap": true },
+        {
+          "type": "TextBlock",
+          "id": "Bottom_Sentinel",
+          "text": "Bottom sentinel — end of expanded content",
+          "weight": "bolder",
+          "wrap": true
+        }
+      ]
+    }
+  ]
+}
