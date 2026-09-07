@@ -1,7 +1,9 @@
 # Windows port — architecture & developer guide
 
 > Branch: `windows-port` on `hggz/AdaptiveCards-Mobile-1`  
-> Status: feature-complete; draft PR deferred until the user approves.  
+> Status: POC coverage implemented; WPF interaction crash remains to be fixed.\
+> Current evidence and next steps: [Windows agent handoff](windows-port-handoff.md).\
+> Draft PR stays parked until the user approves.\
 > History: phased commits (one feature per commit) on top of the
 > Phase 15 a11y-baseline commit. See `git log --oneline windows-port`
 > for the running list.
