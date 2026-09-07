@@ -1,0 +1,264 @@
+{
+  "children" : [
+    {
+      "isSubtle" : false,
+      "size" : "large",
+      "string" : "Windows Extras",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "isSubtle" : true,
+      "size" : "default",
+      "string" : "Exercises Chart, TabSet, CompoundButton, Carousel, List, Media, and Input.Rating in one compact card so the IR-level a11y baseline picks up coverage of the seven windows-port renderer additions.",
+      "type" : "text",
+      "weight" : "default",
+      "wrap" : true
+    },
+    {
+      "data" : [
+        {
+          "color" : "#0078D4",
+          "label" : "Americas",
+          "value" : 50
+        },
+        {
+          "color" : "#107C10",
+          "label" : "EMEA",
+          "value" : 30
+        },
+        {
+          "color" : "#FFB900",
+          "label" : "APAC",
+          "value" : 20
+        }
+      ],
+      "kind" : "donut",
+      "showLegend" : true,
+      "title" : "Sales by Region",
+      "type" : "chart"
+    },
+    {
+      "selectedTabIndex" : 0,
+      "tabs" : [
+        {
+          "content" : [
+            {
+              "data" : [
+                {
+                  "label" : "Mon",
+                  "value" : 12
+                },
+                {
+                  "label" : "Tue",
+                  "value" : 18
+                },
+                {
+                  "label" : "Wed",
+                  "value" : 24
+                },
+                {
+                  "label" : "Thu",
+                  "value" : 21
+                },
+                {
+                  "label" : "Fri",
+                  "value" : 30
+                }
+              ],
+              "kind" : "bar",
+              "showLegend" : false,
+              "title" : "Weekly Visits",
+              "type" : "chart"
+            }
+          ],
+          "id" : "trend",
+          "title" : "Trend"
+        },
+        {
+          "content" : [
+            {
+              "action" : {
+                "payload" : "{\"report\":\"monthly\"}",
+                "type" : "submit"
+              },
+              "icon" : "doc.fill",
+              "subtitle" : "PDF, last 30 days",
+              "title" : "Generate Report",
+              "type" : "compoundButton"
+            }
+          ],
+          "id" : "actions",
+          "title" : "Actions"
+        }
+      ],
+      "type" : "tabSet"
+    },
+    {
+      "action" : {
+        "payload" : "https:\/\/example.com\/dashboard",
+        "type" : "openUrl"
+      },
+      "icon" : "chart.bar.fill",
+      "subtitle" : "Full analytics view",
+      "title" : "Open Dashboard",
+      "type" : "compoundButton"
+    },
+    {
+      "items" : [
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Wire renderer",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Wire view",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Wire a11y dump",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        }
+      ],
+      "style" : "bulleted",
+      "type" : "list"
+    },
+    {
+      "items" : [
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Add IR case",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Add Codable round-trip",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "Add reference card + baselines",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        }
+      ],
+      "style" : "numbered",
+      "type" : "list"
+    },
+    {
+      "altText" : "Short intro video walking through the windows-port renderer.",
+      "posterURL" : "https:\/\/adaptivecards.io\/content\/poster-video.png",
+      "sources" : [
+        {
+          "mimeType" : "video\/mp4",
+          "url" : "https:\/\/example.com\/intro.mp4"
+        },
+        {
+          "mimeType" : "video\/webm",
+          "url" : "https:\/\/example.com\/intro.webm"
+        }
+      ],
+      "type" : "media"
+    },
+    {
+      "id" : "satisfaction",
+      "isRequired" : false,
+      "label" : "How satisfied are you?",
+      "max" : 5,
+      "type" : "ratingField",
+      "value" : 3
+    },
+    {
+      "autoAdvanceMs" : 4000,
+      "pages" : [
+        {
+          "content" : [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Highlight 1: Onboarding",
+              "type" : "text",
+              "weight" : "bolder",
+              "wrap" : false
+            },
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Three-step setup, no install required.",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : true
+            }
+          ],
+          "id" : "TextBlock_TextBlock"
+        },
+        {
+          "content" : [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Highlight 2: Reports",
+              "type" : "text",
+              "weight" : "bolder",
+              "wrap" : false
+            },
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Auto-generated PDF reports delivered weekly.",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : true
+            }
+          ],
+          "id" : "TextBlock_TextBlock"
+        },
+        {
+          "content" : [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Highlight 3: Integrations",
+              "type" : "text",
+              "weight" : "bolder",
+              "wrap" : false
+            },
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Connect any data source via Power Platform.",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : true
+            }
+          ],
+          "id" : "TextBlock_TextBlock"
+        }
+      ],
+      "selectedPageIndex" : 1,
+      "type" : "carousel"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

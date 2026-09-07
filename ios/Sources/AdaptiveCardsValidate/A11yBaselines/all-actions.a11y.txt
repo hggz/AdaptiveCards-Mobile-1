@@ -1,0 +1,8 @@
+VStack
+  Heading "Action Examples" [size=large weight=bolder]
+  HStack
+    Button name="Open URL" [kind=openUrl]
+    Button name="Submit Data" [kind=submit]
+  Text "Toggle Visibility Example" [weight=bolder]
+  HStack
+    Button name="Toggle Text" [kind=toggleVisibility]

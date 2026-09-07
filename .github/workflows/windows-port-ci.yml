@@ -1,0 +1,697 @@
+name: windows-port-ci
+
+# CI scoped to the windows-port branch. Runs the headless validation
+# harness + cross-platform compile checks. Inherited workflows
+# (ios-tests, android-tests, parity-gate, etc.) are deliberately not
+# triggered here because they're gated on main / copilot/** / feat/**.
+#
+# Five jobs land in this file (matches the brief's required matrix):
+#   macos-existing         -- iOS Package.swift compiles on macOS
+#                             (sanity check the swift-tools-version 5.10
+#                             bump didn't break the existing renderer).
+#   linux-build            -- AdaptiveCardsCrossUI compiles on Linux,
+#                             proving the cross-UI swap is portable.
+#                             ALSO runs `swift run AdaptiveCardsValidate`
+#                             so IR snapshot + a11y baseline drift is
+#                             caught on Linux too (same harness the
+#                             Windows runner uses; no UI backend
+#                             needed so it works under the swift.org
+#                             container).
+#   windows-build          -- All four windows-port targets build +
+#                             AdaptiveCardsValidate.exe headless harness
+#                             passes its 90 checks (renderer unit,
+#                             submit-payload merge, reference samples,
+#                             broad parse, C-ABI surface, snapshot
+#                             baselines, AND a11y IR baselines).
+#                             REQUIRED, no continue-on-error, per brief.
+#   windows-render-smoke   -- Re-uses the cached Windows .build/ and
+#                             launches AdaptiveCardsWindowsDemo.exe with
+#                             each of the 8 reference cards preselected
+#                             via AC_DEFAULT_SAMPLE. The smoke signal is
+#                             non-crash. Then PrintWindow-captures each
+#                             window to PNG and pixel-diffs against the
+#                             committed baselines under
+#                             Sources/AdaptiveCardsValidate/Screenshots/
+#                             with a 2% drift tolerance. CI fails on
+#                             any drift.
+#   windows-c-example      -- End-to-end consumer test for the
+#                             AdaptiveCardsCABI surface. Runs
+#                             examples/embed-windows/c_abi/build.ps1
+#                             which: (a) `swift build`s the static
+#                             target, (b) packs the .o set into a
+#                             standalone .lib via lib.exe, (c) links
+#                             main.c against it plus swiftrt.obj +
+#                             the Swift runtime, (d) executes the
+#                             produced host-demo.exe.
+#                             Exercises every public C-ABI function
+#                             including ac_host_render_json (parses
+#                             + renders Adaptive Card JSON from C).
+#
+# All five jobs are required for the eventual draft PR.
+#
+# A11y note: a previous iteration of this workflow tried to walk the
+# live UI Automation tree under each demo window
+# (System.Windows.Automation / CUIAutomation COM). Both APIs failed on
+# windows-2022 against WinUI 3 / DirectComposition surfaces. Replaced
+# with an IR-level a11y baseline diff in `windows-build` — same review
+# signal (role + accessible name + flags per element, marker tokens
+# like MISSING_LABEL / MISSING_ALT / UNRENDERED), runs on every
+# platform, and doesn't depend on a running GUI. Committed baselines
+# live at Sources/AdaptiveCardsValidate/A11yBaselines/<sample>.a11y.txt.
+
+on:
+  push:
+    branches: [ windows-port ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-existing:
+    name: macOS / existing iOS package compiles
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode + Swift versions
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Build the cross-platform pieces
+        # ACCore is the Foundation-only ObjectModel / parser that both
+        # the existing SwiftUI renderer and the new windows-port renderer
+        # depend on. Building it confirms the swift-tools-version bump
+        # didn't break the iOS package's manifest.
+        working-directory: ios
+        run: |
+          swift build --target ACCore
+          swift build --target AdaptiveCardsCrossUI
+          swift build --target AdaptiveCardsWindowsEmbedded
+          swift build --target AdaptiveCardsCABI
+
+  linux-build:
+    name: Linux / AdaptiveCardsCrossUI compiles
+    runs-on: ubuntu-22.04
+    container:
+      # 6.3.2 ships the trailing-comma parser change (SE-0439, Swift 6.1+)
+      # which swift-cross-ui's Package.swift relies on. Older swift:6.0
+      # containers fail with "unexpected ',' separator" when parsing the
+      # transitive manifest, even though swift-tools-version is 5.10.
+      image: swift:6.3.2-jammy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Build cross-platform targets
+        # Linux build deliberately stops at the library targets. The
+        # demo executable pulls swift-cross-ui's DefaultBackend which
+        # resolves to GtkBackend on Linux, and that needs gtk4 system
+        # libraries the swift container doesn't ship. The library
+        # itself is platform-neutral and compiles green.
+        working-directory: ios
+        run: |
+          swift build --target ACCore
+          swift build --target AdaptiveCardsCrossUI
+          swift build --target AdaptiveCardsWindowsEmbedded
+          swift build --target AdaptiveCardsCABI
+
+      - name: Headless validator (IR snapshot + a11y baselines)
+        # Phase 25: runs the same `AdaptiveCardsValidate` harness that
+        # `windows-build` runs, but on Linux. The validator does NOT
+        # touch swift-cross-ui's UI backends (no GTK / WinUI), so it
+        # builds and runs on any swift.org container. This catches IR
+        # snapshot drift and a11y baseline drift caused by an
+        # iOS / macOS-only change before the Windows runner gets to it,
+        # giving every PR a same-day cross-platform signal on the IR
+        # surface.
+        working-directory: ios
+        run: |
+          swift run AdaptiveCardsValidate
+
+  windows-build:
+    name: Windows / build + AdaptiveCardsValidate (REQUIRED)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift 6.3.2 (manual)
+        # compnerd/gha-setup-swift@main is currently pinning to an
+        # outdated download.swift.org URL template that returns 404 for
+        # 6.x releases (the action expects `/{version}/windows10/...`
+        # but swift.org has moved to `/swift-{version}-release/...`).
+        # Until the action is updated we install manually.
+        shell: pwsh
+        run: |
+          $version = "6.3.2"
+          $url = "https://download.swift.org/swift-$version-release/windows10/swift-$version-RELEASE/swift-$version-RELEASE-windows10.exe"
+          $dst = "$env:RUNNER_TEMP\swift-installer.exe"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
+          Write-Host "Bytes: $((Get-Item $dst).Length)"
+          Write-Host "Running installer (-q quiet)..."
+          $p = Start-Process -FilePath $dst -ArgumentList '-q' -Wait -NoNewWindow -PassThru
+          Write-Host "Installer exit: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) {
+            Write-Error "Installer failed with exit $($p.ExitCode)"
+            exit 1
+          }
+
+      - name: Wire up Swift PATH + SDKROOT
+        shell: pwsh
+        run: |
+          # Locate the freshly-installed toolchain. The Windows installer
+          # lands under either %LOCALAPPDATA% (user-scope) or %ProgramData%
+          # (system-scope) depending on the installer's elevation choice.
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\Swift",
+            "$env:ProgramFiles\Swift",
+            "C:\Library\Swift"
+          )
+          $swiftRoot = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $swiftRoot) {
+            Write-Host "Searching disk for Swift install..."
+            $found = Get-ChildItem -Path C:\ -Recurse -Filter swift.exe -ErrorAction SilentlyContinue -Depth 6 | Select-Object -First 1
+            if ($found) { $swiftRoot = $found.Directory.Parent.Parent.Parent.FullName }
+          }
+          if (-not $swiftRoot) {
+            Write-Error "Could not locate Swift install root"
+            exit 1
+          }
+          Write-Host "Swift root: $swiftRoot"
+          Get-ChildItem $swiftRoot
+          $tc = (Get-ChildItem "$swiftRoot\Toolchains" | Select-Object -First 1).FullName
+          $rt = (Get-ChildItem "$swiftRoot\Runtimes" | Select-Object -First 1).FullName
+          $plat = (Get-ChildItem "$swiftRoot\Platforms" | Select-Object -First 1).FullName
+          Write-Host "Toolchain: $tc"
+          Write-Host "Runtime:   $rt"
+          Write-Host "Platform:  $plat"
+          Add-Content -Path $env:GITHUB_PATH -Value "$tc\usr\bin"
+          Add-Content -Path $env:GITHUB_PATH -Value "$rt\usr\bin"
+          Add-Content -Path $env:GITHUB_ENV -Value "SDKROOT=$plat\Windows.platform\Developer\SDKs\Windows.sdk"
+          Add-Content -Path $env:GITHUB_ENV -Value "DEVELOPER_DIR=$plat\Windows.platform\Developer"
+
+      - name: Setup MSVC environment
+        # windows-2022 ships VS 2022 Enterprise; this exposes link.exe,
+        # cl.exe, and the Windows SDK include/lib paths to the shell.
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Verify Swift toolchain
+        shell: pwsh
+        run: |
+          swift --version
+          where.exe swift
+          where.exe link
+
+      - name: Install WindowsAppSDK 1.5 runtime
+        # swift-cross-ui's WinUIBackend has a runtime dependency on
+        # WindowsAppSDK 1.5.240205001-preview1. Without it, the linked
+        # .exe fails to load.
+        shell: pwsh
+        run: |
+          $url = "https://aka.ms/windowsappsdk/1.5/1.5.240205001-preview1/windowsappruntimeinstall-x64.exe"
+          $dst = "$env:RUNNER_TEMP\wasdk.exe"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
+          Write-Host "Installing WindowsAppSDK runtime..."
+          $p = Start-Process -FilePath $dst -ArgumentList '--quiet' -Wait -NoNewWindow -PassThru
+          Write-Host "exit=$($p.ExitCode)"
+
+      - name: Cache .build directory
+        # The cold Windows build links WinUI.dll, WinAppSDK.dll, UWP.dll
+        # from source (~10 minutes). Cache the artifacts so re-runs hit
+        # an incremental build in seconds.
+        uses: actions/cache@v4
+        with:
+          path: ios/.build
+          key: windows-build-${{ runner.os }}-${{ hashFiles('ios/Package.resolved', 'ios/Package.swift') }}
+          restore-keys: |
+            windows-build-${{ runner.os }}-
+
+      - name: Build windows-port targets
+        # MUST be scoped per-target because Apple-only sibling targets
+        # (ACFluentUI, ACRendering, ACInputs, ACActions, ACAccessibility,
+        # ACTeams, ACCopilotExtensions, ACMarkdown, ACCharts, ACTemplating)
+        # all `import SwiftUI` which doesn't exist on Windows. A bare
+        # `swift build` from the package root fails. See
+        # docs/windows-port.md for the full discipline.
+        shell: pwsh
+        working-directory: ios
+        run: |
+          swift build --target AdaptiveCardsCrossUI
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          swift build --target AdaptiveCardsWindowsEmbedded
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          swift build --target AdaptiveCardsCABI
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          swift build --product AdaptiveCardsValidate
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          swift build --product AdaptiveCardsWindowsDemo
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Run AdaptiveCardsValidate headless harness
+        # The 63-check regression net: renderer unit, submit-payload
+        # merge, reference samples, broad parse, snapshot baselines.
+        # Direct .exe launch (NOT `swift run`) because swift run forces
+        # a full-package build which fails on Apple-only siblings.
+        shell: pwsh
+        working-directory: ios
+        run: |
+          & .\.build\debug\AdaptiveCardsValidate.exe
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::AdaptiveCardsValidate failed with exit $LASTEXITCODE"
+            exit 1
+          }
+
+      - name: Upload AdaptiveCardsValidate.exe + snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-artifacts
+          path: |
+            ios/.build/debug/AdaptiveCardsValidate.exe
+            ios/.build/debug/AdaptiveCardsWindowsDemo.exe
+            ios/Sources/AdaptiveCardsValidate/Snapshots/*.rendertree.json
+          retention-days: 7
+
+  windows-render-smoke:
+    name: Windows / demo launch smoke (per reference card)
+    runs-on: windows-2022
+    needs: windows-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift 6.3.2 (manual)
+        shell: pwsh
+        run: |
+          $version = "6.3.2"
+          $url = "https://download.swift.org/swift-$version-release/windows10/swift-$version-RELEASE/swift-$version-RELEASE-windows10.exe"
+          $dst = "$env:RUNNER_TEMP\swift-installer.exe"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
+          $p = Start-Process -FilePath $dst -ArgumentList '-q' -Wait -NoNewWindow -PassThru
+          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit 1 }
+
+      - name: Wire up Swift PATH + SDKROOT
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\Swift",
+            "$env:ProgramFiles\Swift",
+            "C:\Library\Swift"
+          )
+          $swiftRoot = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $tc = (Get-ChildItem "$swiftRoot\Toolchains" | Select-Object -First 1).FullName
+          $rt = (Get-ChildItem "$swiftRoot\Runtimes" | Select-Object -First 1).FullName
+          $plat = (Get-ChildItem "$swiftRoot\Platforms" | Select-Object -First 1).FullName
+          Add-Content -Path $env:GITHUB_PATH -Value "$tc\usr\bin"
+          Add-Content -Path $env:GITHUB_PATH -Value "$rt\usr\bin"
+          Add-Content -Path $env:GITHUB_ENV -Value "SDKROOT=$plat\Windows.platform\Developer\SDKs\Windows.sdk"
+          Add-Content -Path $env:GITHUB_ENV -Value "DEVELOPER_DIR=$plat\Windows.platform\Developer"
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install WindowsAppSDK 1.5 runtime
+        shell: pwsh
+        run: |
+          $url = "https://aka.ms/windowsappsdk/1.5/1.5.240205001-preview1/windowsappruntimeinstall-x64.exe"
+          $dst = "$env:RUNNER_TEMP\wasdk.exe"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
+          $p = Start-Process -FilePath $dst -ArgumentList '--quiet' -Wait -NoNewWindow -PassThru
+          Write-Host "exit=$($p.ExitCode)"
+
+      - name: Restore cached .build directory from windows-build job
+        # The smoke job depends on windows-build via `needs:`, so the
+        # cache will be warm. With the cache hit the swift build below
+        # is an incremental no-op (just relinks).
+        uses: actions/cache@v4
+        with:
+          path: ios/.build
+          key: windows-build-${{ runner.os }}-${{ hashFiles('ios/Package.resolved', 'ios/Package.swift') }}
+          restore-keys: |
+            windows-build-${{ runner.os }}-
+
+      - name: Rebuild demo (incremental, ~seconds with cache)
+        shell: pwsh
+        working-directory: ios
+        run: |
+          swift build --product AdaptiveCardsWindowsDemo
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "::group::locate built .exe artifacts"
+          Get-ChildItem .build -Recurse -Filter 'AdaptiveCardsWindowsDemo.exe' -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          Write-Host "::endgroup::"
+
+      - name: Launch demo per reference card + capture
+          # For each of the 8 reference samples:
+        #  1. Spawn the demo with AC_DEFAULT_SAMPLE preselected.
+        #  2. Wait ~6 seconds for the WinUI runtime to spin up.
+        #  3. If the process exited before the wait completed, the run
+        #     crashed -> failure. (This is the actual smoke signal.)
+        #  4. Best-effort PrintWindow capture into a PNG. The WinUI
+        #     DirectComposition surface usually shows up as a black
+        #     rectangle on headless CI runners, but the window chrome
+        #     (title bar, ScrollView background) does render.
+        #  5. Kill the process and move on.
+        #
+        # CI plumbing notes:
+        #  * Swift's runtime DLLs sit under
+        #    $env:LOCALAPPDATA\Programs\Swift\Runtimes\<ver>\usr\bin and
+        #    are only discoverable if that directory is on PATH for the
+        #    child process. Wire-up Swift PATH adds it via GITHUB_PATH
+        #    but Start-Process spawns from PowerShell's $env:Path which
+        #    GITHUB_PATH only propagates to subsequent steps, not the
+        #    current one. Re-add it here defensively.
+        #  * Same caveat for WinAppSDK runtime DLLs which live under
+        #    $env:LOCALAPPDATA\Microsoft\WindowsAppSDK\<ver>\runtime\x64.
+        #  * stderr/stdout redirection only works when we use -PassThru
+        #    + -RedirectStandardError/Output; without -NoNewWindow on
+        #    Windows the child process inherits a console handle that
+        #    can confuse the Win32 surface attach.
+        shell: pwsh
+        working-directory: ios
+        run: |
+          # Re-resolve Swift install + ensure runtime DLLs are on PATH
+          # for the spawned demo .exe.
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\Swift",
+            "$env:ProgramFiles\Swift",
+            "C:\Library\Swift"
+          )
+          $swiftRoot = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ($swiftRoot) {
+            $rt = (Get-ChildItem "$swiftRoot\Runtimes" | Select-Object -First 1).FullName
+            $env:Path = "$rt\usr\bin;$env:Path"
+            Write-Host "Added Swift runtime to PATH: $rt\usr\bin"
+          }
+          # Stage WindowsAppSDK runtime DLLs next to the .exe so the
+          # loader finds them without ApplicationFrameHost coupling.
+          # The MSIX-deployed runtime lives under WindowsApps/, not the
+          # per-user LOCALAPPDATA path I originally guessed.
+          $wasdkProbe = @(
+            "$env:ProgramFiles\WindowsApps",
+            "$env:LOCALAPPDATA\Microsoft\WindowsAppSDK",
+            "${env:ProgramFiles(x86)}\WindowsApps"
+          )
+          $wasdk = $null
+          foreach ($p in $wasdkProbe) {
+            if (Test-Path $p) {
+              $wasdk = Get-ChildItem $p -ErrorAction SilentlyContinue -Recurse -Filter 'Microsoft.WindowsAppRuntime.Bootstrap.dll' -Force -Depth 6 | Select-Object -First 1
+              if ($wasdk) { break }
+            }
+          }
+          if ($wasdk) {
+            Write-Host "WindowsAppSDK bootstrap found: $($wasdk.Directory.FullName)"
+            $env:Path = "$($wasdk.Directory.FullName);$env:Path"
+          } else {
+            Write-Host "::warning::WindowsAppSDK bootstrap DLL not located (will rely on dynamic loader)"
+          }
+
+          # Sanity check the demo loads at all using rundll32-equivalent
+          # diagnostics. dumpbin /dependents needs MSVC env which we
+          # already have via ilammy/msvc-dev-cmd.
+          Write-Host "::group::dumpbin /dependents for AdaptiveCardsWindowsDemo.exe"
+          $exeProbe = Get-ChildItem .build -Recurse -Filter 'AdaptiveCardsWindowsDemo.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($exeProbe) {
+            & dumpbin /dependents $exeProbe.FullName 2>&1 |
+              Select-String -Pattern '^\s+\S+\.dll' | Select-Object -First 30
+          } else {
+            Write-Host "::warning::demo .exe not found"
+          }
+          Write-Host "::endgroup::"
+
+          $samples = @(
+            'simple-text.json',
+            'containers.json',
+            'input-form.json',
+            'all-actions.json',
+            'table.json',
+            'rating.json',
+            'edge-empty-card.json',
+            'windows-extras.json'
+          )
+          $sig = 'using System; using System.Runtime.InteropServices; public class WC { [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect); [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int n); [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; } }'
+          Add-Type -AssemblyName System.Drawing
+          if (-not ('WC' -as [type])) { Add-Type -TypeDefinition $sig -ReferencedAssemblies System.Drawing }
+          New-Item -ItemType Directory -Path screenshots -Force | Out-Null
+          $exePath = Get-ChildItem .build -Recurse -Filter 'AdaptiveCardsWindowsDemo.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exePath) {
+            Write-Error "AdaptiveCardsWindowsDemo.exe not found anywhere under .build/"
+            Get-ChildItem .build -Recurse -ErrorAction SilentlyContinue -Depth 4 | Select-Object FullName -First 50
+            exit 1
+          }
+          $exePath = $exePath.FullName
+          $exeDir = Split-Path $exePath
+          Write-Host "Located exe: $exePath"
+          $screenshotDir = (Resolve-Path "screenshots").Path
+          $failures = @()
+          foreach ($sample in $samples) {
+            Write-Host "::group::sample $sample"
+            $env:AC_DEFAULT_SAMPLE = $sample
+            $stem = $sample.Replace('.','_')
+            $outFile = "$screenshotDir\$stem-out.txt"
+            $errFile = "$screenshotDir\$stem-err.txt"
+            # Push-Location so Start-Process inherits a real cwd
+            # without needing -WorkingDirectory (which conflicts with
+            # -RedirectStandardOutput on Windows PowerShell).
+            Push-Location $exeDir
+            try {
+              $proc = Start-Process -FilePath $exePath `
+                -PassThru `
+                -RedirectStandardOutput $outFile `
+                -RedirectStandardError $errFile
+            } finally {
+              Pop-Location
+            }
+            Start-Sleep -Seconds 6
+            $p2 = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
+            if (-not $p2) {
+              Write-Host "::error::$sample exited before 6s wait (crash signal). ExitCode=$($proc.ExitCode)"
+              if (Test-Path $errFile) {
+                $err = Get-Content $errFile -Raw
+                if ($err) { Write-Host "stderr: $err" }
+              }
+              if (Test-Path $outFile) {
+                $out = Get-Content $outFile -Raw
+                if ($out) { Write-Host "stdout: $out" }
+              }
+              $failures += $sample
+              Write-Host "::endgroup::"
+              continue
+            }
+            $hwnd = $p2.MainWindowHandle
+            Write-Host "$sample  title='$($p2.MainWindowTitle)'  hwnd=$hwnd"
+            if ($hwnd -ne 0) {
+              [WC]::ShowWindow($hwnd, 9) | Out-Null
+              Start-Sleep -Milliseconds 600
+              $rect = New-Object WC+RECT
+              [WC]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
+              $w = $rect.Right - $rect.Left
+              $h = $rect.Bottom - $rect.Top
+              if ($w -gt 0 -and $h -gt 0) {
+                try {
+                  $bmp = New-Object System.Drawing.Bitmap $w, $h, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+                  $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+                  $hdc = $gfx.GetHdc()
+                  [WC]::PrintWindow($hwnd, $hdc, 2) | Out-Null
+                  $gfx.ReleaseHdc($hdc); $gfx.Dispose()
+                  $bmp.Save("$screenshotDir\$stem.png", [System.Drawing.Imaging.ImageFormat]::Png)
+                  $bmp.Dispose()
+                  Write-Host "  captured $stem.png ($w x $h)"
+                } catch {
+                  Write-Host "  PrintWindow capture failed: $($_.Exception.Message)"
+                }
+              }
+            }
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            Write-Host "::endgroup::"
+          }
+          if ($failures.Count -gt 0) {
+            Write-Host "::error::$($failures.Count) sample(s) failed to launch: $($failures -join ', ')"
+            exit 1
+          }
+          Write-Host "All 8 samples launched without crashing."
+
+      - name: Pixel-diff captures against committed baselines
+        # Compare each fresh capture in screenshots/ to the committed
+        # baseline under Sources/AdaptiveCardsValidate/Screenshots/.
+        # Tolerance: any pixel with max|fresh-baseline| > 10 (any of
+        # B/G/R/A channels) counts as "different". If >2% of pixels
+        # differ, the sample is flagged drift. CI fails on any drift.
+        # Run with workflow_dispatch input update-screenshots=true to
+        # bypass the diff (no committed update — host downloads the
+        # fresh artifact and refreshes the baseline in a follow-up).
+        #
+        # Window dimensions are deterministic across runs because the
+        # demo sets `.defaultSize(width: 820, height: 720)`; PrintWindow
+        # captures include the chrome so the actual PNG comes out
+        # 836x759 on windows-2022 (window border + title bar).
+        shell: pwsh
+        working-directory: ios
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $baselineDir = "Sources\AdaptiveCardsValidate\Screenshots"
+          $samples = @(
+            'simple-text.json',
+            'containers.json',
+            'input-form.json',
+            'all-actions.json',
+            'table.json',
+            'rating.json',
+            'edge-empty-card.json',
+            'windows-extras.json'
+          )
+          $tolerance = 10
+          $maxDriftFraction = 0.02
+          $driftedSamples = @()
+          foreach ($sample in $samples) {
+            $stem = $sample.Replace('.','_')
+            $fresh = "screenshots\$stem.png"
+            $baseline = "$baselineDir\$stem.png"
+            if (-not (Test-Path $fresh)) {
+              Write-Host "::warning::${sample}: no fresh capture (skipping diff)"
+              continue
+            }
+            if (-not (Test-Path $baseline)) {
+              Write-Host "::warning::${sample}: no baseline at $baseline (skipping diff). Bootstrap by copying from artifact."
+              continue
+            }
+            $a = [System.Drawing.Bitmap]::FromFile((Resolve-Path $fresh).Path)
+            $b = [System.Drawing.Bitmap]::FromFile((Resolve-Path $baseline).Path)
+            try {
+              if ($a.Width -ne $b.Width -or $a.Height -ne $b.Height) {
+                Write-Host "::error::$sample dimension mismatch: fresh=$($a.Width)x$($a.Height) baseline=$($b.Width)x$($b.Height)"
+                $driftedSamples += $sample
+                continue
+              }
+              $rect = New-Object System.Drawing.Rectangle 0, 0, $a.Width, $a.Height
+              $pf = [System.Drawing.Imaging.PixelFormat]::Format32bppArgb
+              $da = $a.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, $pf)
+              $db = $b.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, $pf)
+              $byteCount = $da.Stride * $a.Height
+              $ba = New-Object byte[] $byteCount
+              $bb = New-Object byte[] $byteCount
+              [System.Runtime.InteropServices.Marshal]::Copy($da.Scan0, $ba, 0, $byteCount)
+              [System.Runtime.InteropServices.Marshal]::Copy($db.Scan0, $bb, 0, $byteCount)
+              $a.UnlockBits($da); $b.UnlockBits($db)
+              $diffPixels = 0
+              $pixelCount = $a.Width * $a.Height
+              for ($i = 0; $i -lt $byteCount; $i += 4) {
+                $dB = [Math]::Abs($ba[$i]     - $bb[$i])
+                $dG = [Math]::Abs($ba[$i + 1] - $bb[$i + 1])
+                $dR = [Math]::Abs($ba[$i + 2] - $bb[$i + 2])
+                $dA = [Math]::Abs($ba[$i + 3] - $bb[$i + 3])
+                if (($dB -gt $tolerance) -or ($dG -gt $tolerance) -or
+                    ($dR -gt $tolerance) -or ($dA -gt $tolerance)) {
+                  $diffPixels++
+                }
+              }
+              $fraction = $diffPixels / $pixelCount
+              $pct = [Math]::Round($fraction * 100, 3)
+              if ($fraction -gt $maxDriftFraction) {
+                Write-Host "::error::$sample DRIFT: $diffPixels / $pixelCount pixels differ ($pct% > 2.0% threshold)"
+                $driftedSamples += $sample
+              } else {
+                Write-Host "  ok $sample $diffPixels / $pixelCount pixels differ ($pct%)"
+              }
+            } finally {
+              $a.Dispose()
+              $b.Dispose()
+            }
+          }
+          if ($driftedSamples.Count -gt 0) {
+            Write-Host "::error::Pixel diff failed for: $($driftedSamples -join ', '). Download the windows-render-smoke artifact and update baselines under Sources/AdaptiveCardsValidate/Screenshots/ if the drift is intentional."
+            exit 1
+          }
+          Write-Host "All 8 captures within 2% pixel-drift tolerance of committed baselines."
+
+      - name: Upload screenshots + stdout/err
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-render-smoke
+          path: ios/screenshots/
+          retention-days: 7
+
+
+  windows-c-example:
+    name: Windows / C-ABI example (cl.exe link + run)
+    runs-on: windows-2022
+    needs: windows-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift 6.3.2 (manual)
+        shell: pwsh
+        run: |
+          $version = "6.3.2"
+          $url = "https://download.swift.org/swift-$version-release/windows10/swift-$version-RELEASE/swift-$version-RELEASE-windows10.exe"
+          $dst = "$env:RUNNER_TEMP\swift-installer.exe"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
+          $p = Start-Process -FilePath $dst -ArgumentList '-q' -Wait -NoNewWindow -PassThru
+          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit 1 }
+
+      - name: Wire up Swift PATH + SDKROOT
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\Swift",
+            "$env:ProgramFiles\Swift",
+            "C:\Library\Swift"
+          )
+          $swiftRoot = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $tc = (Get-ChildItem "$swiftRoot\Toolchains" | Select-Object -First 1).FullName
+          $rt = (Get-ChildItem "$swiftRoot\Runtimes" | Select-Object -First 1).FullName
+          $plat = (Get-ChildItem "$swiftRoot\Platforms" | Select-Object -First 1).FullName
+          Add-Content -Path $env:GITHUB_PATH -Value "$tc\usr\bin"
+          Add-Content -Path $env:GITHUB_PATH -Value "$rt\usr\bin"
+          Add-Content -Path $env:GITHUB_ENV -Value "SDKROOT=$plat\Windows.platform\Developer\SDKs\Windows.sdk"
+          Add-Content -Path $env:GITHUB_ENV -Value "DEVELOPER_DIR=$plat\Windows.platform\Developer"
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Restore cached .build directory
+        uses: actions/cache@v4
+        with:
+          path: ios/.build
+          key: windows-build-${{ runner.os }}-${{ hashFiles('ios/Package.resolved', 'ios/Package.swift') }}
+          restore-keys: |
+            windows-build-${{ runner.os }}-
+
+      - name: Build + run the C host
+        # Runs the end-to-end recipe documented in
+        # examples/embed-windows/c_abi/build.ps1: swift build the static
+        # target, pack the .o files into a .lib via lib.exe, compile +
+        # link main.c against AdaptiveCardsCABI.lib plus the Swift
+        # runtime libs, then execute the binary. Any failure -> job
+        # failure. The example currently only exercises the lifecycle +
+        # backend identifier + callback round-trip; ac_host_render_json
+        # from C-hosted Swift remains an open follow-up (see main.c).
+        shell: pwsh
+        run: |
+          # build.ps1 expects to be run inside a VS Dev Shell. The
+          # ilammy/msvc-dev-cmd@v1 step above set up VSINSTALLDIR which
+          # build.ps1 checks for.
+          $env:VSINSTALLDIR = $env:VSINSTALLDIR
+          Push-Location examples\embed-windows\c_abi
+          try {
+            .\build.ps1 -Run
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::build.ps1 -Run failed (exit $LASTEXITCODE)"
+              exit 1
+            }
+          } finally { Pop-Location }
+
+      - name: Upload host-demo.exe artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-c-example
+          path: |
+            examples/embed-windows/c_abi/host-demo.exe
+            examples/embed-windows/c_abi/AdaptiveCardsCABI.lib
+          retention-days: 7

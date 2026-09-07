@@ -1,0 +1,51 @@
+{
+  "children" : [
+    {
+      "isSubtle" : false,
+      "size" : "large",
+      "string" : "Input Form",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "id" : "name",
+      "isMultiline" : false,
+      "isRequired" : true,
+      "label" : "Name",
+      "placeholder" : "Enter your name",
+      "type" : "textField"
+    },
+    {
+      "id" : "age",
+      "isRequired" : false,
+      "label" : "Age",
+      "placeholder" : "Enter your age",
+      "type" : "numberField"
+    },
+    {
+      "id" : "subscribe",
+      "isRequired" : false,
+      "title" : "Subscribe to newsletter",
+      "type" : "toggleField",
+      "value" : false,
+      "valueOff" : "false",
+      "valueOn" : "true"
+    },
+    {
+      "children" : [
+        {
+          "kind" : {
+            "type" : "submit"
+          },
+          "title" : "Submit",
+          "type" : "button"
+        }
+      ],
+      "spacing" : 8,
+      "type" : "horizontalStack"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

@@ -1,0 +1,115 @@
+{
+  "children" : [
+    {
+      "isSubtle" : false,
+      "size" : "large",
+      "string" : "Table Example",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "headers" : [
+        [
+          {
+            "isSubtle" : false,
+            "size" : "default",
+            "string" : "Name",
+            "type" : "text",
+            "weight" : "bolder",
+            "wrap" : false
+          }
+        ],
+        [
+          {
+            "isSubtle" : false,
+            "size" : "default",
+            "string" : "Description",
+            "type" : "text",
+            "weight" : "bolder",
+            "wrap" : false
+          }
+        ],
+        [
+          {
+            "isSubtle" : false,
+            "size" : "default",
+            "string" : "Value",
+            "type" : "text",
+            "weight" : "bolder",
+            "wrap" : false
+          }
+        ]
+      ],
+      "rows" : [
+        [
+          [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Item 1",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : false
+            }
+          ],
+          [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "First item description",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : false
+            }
+          ],
+          [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "$10",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : false
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Item 2",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : false
+            }
+          ],
+          [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Second item description",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : false
+            }
+          ],
+          [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "$20",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : false
+            }
+          ]
+        ]
+      ],
+      "type" : "table"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

@@ -1,0 +1,174 @@
+{
+  "type": "AdaptiveCard",
+  "version": "1.6",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Windows Extras",
+      "size": "Large",
+      "weight": "Bolder"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Exercises Chart, TabSet, CompoundButton, Carousel, List, Media, and Input.Rating in one compact card so the IR-level a11y baseline picks up coverage of the seven windows-port renderer additions.",
+      "wrap": true,
+      "isSubtle": true
+    },
+    {
+      "type": "DonutChart",
+      "id": "salesChart",
+      "title": "Sales by Region",
+      "showLegend": true,
+      "data": [
+        { "label": "Americas", "value": 50, "color": "#0078D4" },
+        { "label": "EMEA", "value": 30, "color": "#107C10" },
+        { "label": "APAC", "value": 20, "color": "#FFB900" }
+      ]
+    },
+    {
+      "type": "TabSet",
+      "id": "detailsTabs",
+      "selectedTabId": "trend",
+      "tabs": [
+        {
+          "id": "trend",
+          "title": "Trend",
+          "items": [
+            {
+              "type": "BarChart",
+              "id": "weeklyBar",
+              "title": "Weekly Visits",
+              "showLegend": false,
+              "data": [
+                { "label": "Mon", "value": 12 },
+                { "label": "Tue", "value": 18 },
+                { "label": "Wed", "value": 24 },
+                { "label": "Thu", "value": 21 },
+                { "label": "Fri", "value": 30 }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "actions",
+          "title": "Actions",
+          "items": [
+            {
+              "type": "CompoundButton",
+              "id": "reportBtn",
+              "title": "Generate Report",
+              "subtitle": "PDF, last 30 days",
+              "icon": "doc.fill",
+              "action": {
+                "type": "Action.Submit",
+                "title": "Generate",
+                "data": { "report": "monthly" }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CompoundButton",
+      "id": "openDashBtn",
+      "title": "Open Dashboard",
+      "subtitle": "Full analytics view",
+      "icon": "chart.bar.fill",
+      "action": {
+        "type": "Action.OpenUrl",
+        "title": "Open",
+        "url": "https://example.com/dashboard"
+      }
+    },
+    {
+      "type": "List",
+      "id": "checklistBulleted",
+      "style": "bulleted",
+      "items": [
+        { "type": "TextBlock", "text": "Wire renderer" },
+        { "type": "TextBlock", "text": "Wire view" },
+        { "type": "TextBlock", "text": "Wire a11y dump" }
+      ]
+    },
+    {
+      "type": "List",
+      "id": "stepsNumbered",
+      "style": "numbered",
+      "items": [
+        { "type": "TextBlock", "text": "Add IR case" },
+        { "type": "TextBlock", "text": "Add Codable round-trip" },
+        { "type": "TextBlock", "text": "Add reference card + baselines" }
+      ]
+    },
+    {
+      "type": "Media",
+      "id": "introVideo",
+      "altText": "Short intro video walking through the windows-port renderer.",
+      "poster": "https://adaptivecards.io/content/poster-video.png",
+      "sources": [
+        { "mimeType": "video/mp4", "url": "https://example.com/intro.mp4" },
+        { "mimeType": "video/webm", "url": "https://example.com/intro.webm" }
+      ]
+    },
+    {
+      "type": "Input.Rating",
+      "id": "satisfaction",
+      "label": "How satisfied are you?",
+      "max": 5,
+      "value": 3,
+      "isRequired": false
+    },
+    {
+      "type": "Carousel",
+      "id": "highlightCarousel",
+      "initialPage": 1,
+      "timer": 4000,
+      "pages": [
+        {
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Highlight 1: Onboarding",
+              "weight": "Bolder"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Three-step setup, no install required.",
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Highlight 2: Reports",
+              "weight": "Bolder"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Auto-generated PDF reports delivered weekly.",
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Highlight 3: Integrations",
+              "weight": "Bolder"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Connect any data source via Power Platform.",
+              "wrap": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

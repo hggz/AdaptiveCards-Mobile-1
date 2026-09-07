@@ -1,0 +1,35 @@
+{
+  "children" : [
+    {
+      "isSubtle" : false,
+      "size" : "large",
+      "string" : "Simple Card",
+      "type" : "text",
+      "weight" : "bolder",
+      "wrap" : false
+    },
+    {
+      "isSubtle" : false,
+      "size" : "default",
+      "string" : "This is a simple adaptive card with basic text elements.",
+      "type" : "text",
+      "weight" : "default",
+      "wrap" : true
+    },
+    {
+      "children" : [
+        {
+          "kind" : {
+            "type" : "submit"
+          },
+          "title" : "Submit",
+          "type" : "button"
+        }
+      ],
+      "spacing" : 8,
+      "type" : "horizontalStack"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

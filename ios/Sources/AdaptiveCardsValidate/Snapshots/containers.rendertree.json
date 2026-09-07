@@ -1,0 +1,68 @@
+{
+  "children" : [
+    {
+      "children" : [
+        {
+          "isSubtle" : false,
+          "size" : "large",
+          "string" : "Container Example",
+          "type" : "text",
+          "weight" : "bolder",
+          "wrap" : false
+        },
+        {
+          "isSubtle" : false,
+          "size" : "default",
+          "string" : "This text is inside a container with emphasis style.",
+          "type" : "text",
+          "weight" : "default",
+          "wrap" : false
+        }
+      ],
+      "spacing" : 8,
+      "type" : "verticalStack"
+    },
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "alt" : "",
+              "displayHint" : "small",
+              "type" : "image",
+              "url" : "https:\/\/adaptivecards.io\/content\/cats\/1.png"
+            }
+          ],
+          "spacing" : 8,
+          "type" : "verticalStack"
+        },
+        {
+          "children" : [
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "Column Set",
+              "type" : "text",
+              "weight" : "bolder",
+              "wrap" : false
+            },
+            {
+              "isSubtle" : false,
+              "size" : "default",
+              "string" : "This demonstrates a column layout with an image and text.",
+              "type" : "text",
+              "weight" : "default",
+              "wrap" : true
+            }
+          ],
+          "spacing" : 8,
+          "type" : "verticalStack"
+        }
+      ],
+      "spacing" : 8,
+      "type" : "horizontalStack"
+    }
+  ],
+  "spacing" : 8,
+  "type" : "verticalStack"
+}

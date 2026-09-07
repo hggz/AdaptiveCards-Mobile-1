@@ -1,0 +1,19 @@
+VStack
+  Heading "Product Reviews" [size=large weight=bolder]
+  Text "Adaptive Cards Mobile SDK" [size=medium weight=bolder]
+  Rating name="4.5 out of 5 stars" [value=4.5 max=5 count=128]
+  Text "A fantastic SDK for building mobile experiences!" [wrap]
+  Text "Rate Your Experience" [size=medium weight=bolder]
+  RatingField label="How would you rate this product?" [id=userRating max=5 value=0.0 required]
+  TextField label="Additional feedback (optional)" [id=feedback multiline]
+    placeholder="Tell us more about your experience..."
+  Text "Different Rating Sizes" [size=medium weight=bolder]
+  VStack
+    Text "Small:" [size=small]
+    Rating name="3.5 out of 5 stars" [value=3.5 max=5]
+    Text "Medium (default):" [size=small]
+    Rating name="4.0 out of 5 stars" [value=4.0 max=5]
+    Text "Large:" [size=small]
+    Rating name="5.0 out of 5 stars" [value=5.0 max=5]
+  HStack
+    Button name="Submit Rating" [kind=submit]

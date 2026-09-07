@@ -1,0 +1,6 @@
+# Build outputs from build.ps1 — never commit, they're produced fresh from
+# the Swift static target each run.
+AdaptiveCardsCABI.lib
+host-demo.exe
+host-demo.obj
+main.obj

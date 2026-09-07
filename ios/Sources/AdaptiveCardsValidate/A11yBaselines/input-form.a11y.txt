@@ -1,0 +1,10 @@
+VStack
+  Heading "Input Form" [size=large weight=bolder]
+  TextField label="Name" [id=name required]
+    placeholder="Enter your name"
+  NumberField label="Age" [id=age]
+    placeholder="Enter your age"
+  Toggle title="Subscribe to newsletter" [id=subscribe off]
+    valueOn="true" valueOff="false"
+  HStack
+    Button name="Submit" [kind=submit]

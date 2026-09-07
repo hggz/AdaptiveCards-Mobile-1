@@ -1,0 +1,8 @@
+# windows-port: keep RenderingNode snapshot baselines LF-only so the
+# snapshot diff stays bit-stable across macOS/Linux/Windows checkouts.
+# JSONEncoder always emits LF; if git rewrites to CRLF on Windows, the
+# baseline comparison in Sources/AdaptiveCardsValidate/Snapshots.swift
+# fails for spurious reasons. Same for the IR a11y baselines emitted
+# by A11yDump (newline-joined Swift strings, also LF-only).
+*.rendertree.json text eol=lf
+*.a11y.txt        text eol=lf
